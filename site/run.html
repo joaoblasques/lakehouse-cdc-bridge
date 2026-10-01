@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Run It · Lakehouse CDC Bridge</title>
-  <meta name="description" content="Run the full pipeline locally with Docker and Spark, or deploy it to Databricks with the Asset Bundle.">
+  <title>Deploy · Lakehouse CDC Bridge</title>
+  <meta name="description" content="Deploy the pipeline to Databricks and Confluent Cloud with the Asset Bundle, and find your way around the code.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
@@ -13,36 +13,11 @@
 <body data-page="run">
 <main>
   <section class="hero">
-    <div class="eyebrow">Run it</div>
-    <h1>Reproduce the results</h1>
-    <p class="lead">On your own machine in about 15 minutes, with no cloud account. You need
-      <span data-term="docker">Docker</span>, Java 17 or newer (for Spark) and
-      <a href="https://docs.astral.sh/uv/">uv</a> (a Python package manager).</p>
+    <div class="eyebrow">Deploy</div>
+    <h1>Deploy to Databricks and Confluent Cloud</h1>
+    <p class="lead">To install and run everything on your own computer first, follow the
+      <a href="setup.html">Setup guide</a>. This page covers the cloud deployment.</p>
   </section>
-
-  <h2>On your machine</h2>
-  <ol class="steps">
-    <li><b>Clone and install</b>
-<pre><code>git clone https://github.com/joaoblasques/lakehouse-cdc-bridge && cd lakehouse-cdc-bridge
-uv sync --all-extras</code></pre></li>
-    <li><b>Start the two source-side services</b>: SQL Server (with its
-      <span data-term="capture-job">capture job</span> enabled) and Kafka (in
-      <span data-term="kraft">KRaft</span> mode)
-<pre><code>docker compose up -d --wait
-docker compose --profile db2 up -d db2   # optional: the DB2 "mainframe" (4 GB, a few minutes to start)</code></pre>
-      <p class="small muted">Without DB2 the pipeline runs with the other two sources and says so.</p></li>
-    <li><b>Run the automated tests</b> (<span data-term="pytest">pytest</span>): first the fast
-      ones, then one that uses the real SQL Server
-<pre><code>uv run pytest
-uv run pytest -m integration    # real SQL Server
-uv run pytest -m db2            # real DB2, if started</code></pre></li>
-    <li><b>Run the whole pipeline</b>: it loads starting data, simulates 6 hours of bank
-      activity, processes each hour end to end, and writes the results to
-      <code>site/data/run_metrics.json</code>
-<pre><code>uv run python scripts/run_local.py --fresh</code></pre></li>
-    <li><b>Open this website locally</b> to see your own numbers
-<pre><code>python -m http.server -d site 8000   # http://localhost:8000</code></pre></li>
-  </ol>
 
   <h2>On Databricks and Confluent Cloud</h2>
   <ol class="steps">
