@@ -72,6 +72,24 @@ python -m http.server -d site 8000        # browse the results
 docker compose --profile api up -d --build alerts-api   # analyst API on http://localhost:8080/docs
 ```
 
+## AI source onboarding
+
+Give it a `CREATE TABLE` and a source name. Claude drafts the judgment parts of the
+`sources.yml` entry (topic, Silver name, personal-data columns, review notes). Code checks each
+claim against the DDL and builds the Silver schema itself, then writes a proposal to
+`conf/proposals/`. A person copies the entry into `conf/sources.yml` through a pull request.
+Only the DDL is sent to the model, never rows.
+
+```bash
+uv sync --extra ai
+export ANTHROPIC_API_KEY=...
+uv run python -m banking_cdc.onboarding --ddl tests/fixtures/ddl/db2_deposits.sql --source db2_core --dry-run  # prompt only
+uv run python -m banking_cdc.onboarding --ddl tests/fixtures/ddl/db2_deposits.sql --source db2_core
+```
+
+The command exits with code 1 when the checker or the model found a blocker. More on the
+[AI onboarding](https://joaoblasques.github.io/lakehouse-cdc-bridge/onboarding.html) page.
+
 ## Deploy to Databricks
 
 ```bash
@@ -89,6 +107,7 @@ key names are listed on the [Deploy](https://joaoblasques.github.io/lakehouse-cd
 | `src/banking_cdc/sources/` | CDC adapters: SQL Server (log), Azure File Share (manifest), DB2 (timestamp + snapshot) |
 | `src/banking_cdc/pipeline/` | capture → Kafka, Bronze/Silver, reconciliation, Gold rules |
 | `src/banking_cdc/generator.py` | synthetic bank with labelled fraud patterns |
+| `src/banking_cdc/onboarding/` | AI source onboarding: drafts a `sources.yml` entry from DDL, checks it, writes a proposal |
 | `src/banking_cdc/alerts_service/` | fraud-alert microservice: Kafka consumer + FastAPI analyst queue |
 | `notebooks/` | Databricks tasks |
 | `databricks.yml` | Asset Bundle: the Workflows job |
@@ -99,5 +118,4 @@ key names are listed on the [Deploy](https://joaoblasques.github.io/lakehouse-cd
 ## Roadmap
 
 A SingleStore adapter, analyst decisions sent back as events, Schema Registry serialisation,
-SCD2 history, an AI assistant that drafts `sources.yml` entries from DDL, and an MLflow fraud
-model scored on the same harness as the rules.
+SCD2 history, and an MLflow fraud model scored on the same harness as the rules.

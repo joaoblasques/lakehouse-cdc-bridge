@@ -121,6 +121,29 @@
       precision on real cases, is the obvious next step.</p>
   </details>
 
+  <details class="adr">
+    <summary>ADR-010 · AI drafts, code verifies, a person approves</summary>
+    <p><b>Situation.</b> Adding a table means writing its configuration by hand: key, topic,
+      Silver name, Silver schema, and deciding which columns hold
+      <span data-term="pii">personal data</span>. A language model
+      (<span data-term="llm">LLM</span>) can do much of this from the table definition
+      (<span data-term="ddl">DDL</span>), but it can also be confidently wrong.</p>
+    <p><b>Decision.</b> The model only gives judgment: names, personal data, and risks to flag.
+      It answers in a fixed format (<span data-term="structured-output">structured output</span>).
+      Code parses the DDL and checks every column the model names against it. The Silver schema
+      is built from the DDL by code, and the model never writes it. The result is a proposal
+      file, and a person approves it through a pull request
+      (<span data-term="human-in-the-loop">human in the loop</span>).</p>
+    <p><b>Why the model never writes the schema.</b> Types are facts that are already in the
+      DDL. A model could turn <code>DECIMAL(18,2)</code> into <code>DOUBLE</code> and nothing
+      would look wrong until amounts stopped adding up. Code that maps types the same way every
+      time can be tested; a model's answer can't be tested in the same way.</p>
+    <p><b>Cost.</b> One model call per table, which needs an API key and sends the DDL (never
+      rows) to an outside service. Every new table still waits for a review step. The tests prove
+      what the code does with any answer, not that the answers are good: judging them stays a
+      person's job.</p>
+  </details>
+
   <h2>What comes next</h2>
   <div class="table-wrap">
     <table>
@@ -131,7 +154,7 @@
         <tr><td><span class="tag">next</span></td><td>SingleStore connector</td><td>The fourth source system</td></tr>
         <tr><td><span class="tag blue">done</span></td><td>Fraud-alert <span data-term="microservice">microservice</span> reading from Kafka</td><td>Shows another application using the same events</td></tr>
         <tr><td><span class="tag">next</span></td><td>Schema Registry; full history of account changes (<span data-term="scd2">SCD2</span>)</td><td>Safer format changes; "what did this account look like on date X?"</td></tr>
-        <tr><td><span class="tag">later</span></td><td>AI assistant that drafts the configuration for a new table from its definition, for a person to approve</td><td>Uses AI to speed up the platform team's own work</td></tr>
+        <tr><td><span class="tag blue">done</span></td><td><a href="onboarding.html">AI assistant</a> that drafts the configuration for a new table from its definition, for a person to approve</td><td>Uses AI to speed up the platform team's own work</td></tr>
         <tr><td><span class="tag">later</span></td><td>Machine-learning fraud model (<span data-term="mlflow">MLflow</span>)</td><td>Compared with the rules using the same precision and recall scoring</td></tr>
       </tbody>
     </table>
