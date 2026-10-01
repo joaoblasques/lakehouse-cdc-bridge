@@ -4,27 +4,31 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lakehouse CDC Bridge</title>
-  <meta name="description" content="Change data capture on Databricks: heterogeneous banking sources into Kafka (Confluent) and Delta Lake, with traceable near-real-time fraud alerts.">
+  <meta name="description" content="Change data capture on Databricks: a bank's source systems streamed into Kafka (Confluent) and Delta Lake, with traceable near-real-time fraud alerts.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="overview">
 <main>
   <section class="hero">
     <div class="eyebrow">Data engineering showcase · synthetic banking data</div>
-    <h1>One CDC layer for a bank's legacy sources, from T+1 batch to alerts in minutes</h1>
+    <h1>Catch every change in a bank's systems, and turn it into fraud alerts within seconds</h1>
     <p class="lead">
-      Databricks notebooks watch SQL Server and an Azure File Share for changes, publish every
-      change as a standard event to Kafka (Confluent), and keep a Delta Lake audit trail. Fraud
-      and AML rules run on the result, and any alert can be traced back to the exact log
-      position or file line that caused it.
+      Banks keep their data in old, separate systems and check for fraud overnight. This project
+      watches those systems for every change, sends each change to one shared stream, stores a
+      full history, and flags suspicious activity seconds after it happens. Every alert can be
+      traced back to the exact database record that caused it.
     </p>
     <div class="cta-row">
       <a class="btn primary" href="results.html">See the measured results</a>
       <a class="btn" href="lineage.html">Trace an alert to its source</a>
       <a class="btn" href="https://github.com/joaoblasques/lakehouse-cdc-bridge">Source code</a>
     </div>
+    <p class="small muted">Words with a dotted underline, like <span data-term="cdc">CDC</span>,
+      show a short definition when you hover or tap them. All terms are in the
+      <a href="glossary.html">Glossary</a>.</p>
   </section>
 
   <section class="grid grid-4" id="headline" aria-live="polite">
@@ -32,32 +36,34 @@
   </section>
   <p class="small muted" id="headline-note"></p>
 
-  <h2>The business problem</h2>
+  <h2>The problem</h2>
   <div class="grid grid-2">
     <div class="card">
-      <h3>Today at Banco Atlântico (fictional)</h3>
+      <h3>How a typical bank works today</h3>
       <ul>
-        <li>Core data sits on four systems: a <b>DB2</b> mainframe, a <b>SQL Server</b> cards
-          platform, <b>SingleStore</b> for instant payments, and partner files on an
-          <b>Azure File Share</b>.</li>
-        <li>Every team that needs the data queries those systems on its own. Mainframe reads
-          cost MIPS, and nobody owns a single version of the data.</li>
-        <li>Fraud and AML checks run as next-day (T+1) batch reports. A card skimmed at 10:00
-          is noticed the following morning.</li>
-        <li>When a regulator asks where a number came from, the answer takes days.</li>
+        <li>Customer and account data sits in several systems: a
+          <span data-term="mainframe">mainframe</span>, a cards database, a payments database,
+          and files that partner banks drop in a shared folder.</li>
+        <li>Each team that needs the data queries those systems on its own. That is slow, and on
+          a mainframe it costs money every time (<span data-term="mips">MIPS</span>).</li>
+        <li>Fraud checks run overnight (<span data-term="t-plus-1">T+1</span>). A card stolen at
+          10:00 is only noticed the next morning.</li>
+        <li>When a regulator asks where a number came from, it takes days to find out.</li>
       </ul>
     </div>
     <div class="card accent">
-      <h3>What this project builds</h3>
+      <h3>What this project does instead</h3>
       <ul>
-        <li><b>One capture layer</b> on Databricks, driven by config. Each source gets the CDC
-          technique it can support (log, file manifest, watermark).</li>
-        <li><b>One event contract</b> on Kafka, so downstream teams subscribe to topics instead
-          of querying the sources.</li>
-        <li><b>Delta audit trail</b>: every event's Kafka offset and source position, plus a
-          reconciliation job that fails loudly when anything is missing.</li>
-        <li><b>Fraud alerts</b> on the stream, scored against planted fraud with
-          precision and recall.</li>
+        <li><b>Captures every change</b> in each source system as it happens
+          (<span data-term="cdc">change data capture</span>), running on
+          <span data-term="databricks">Databricks</span>.</li>
+        <li><b>Publishes each change once</b> to a shared stream
+          (<span data-term="kafka">Kafka</span>). Any team can read it without touching the
+          source systems.</li>
+        <li><b>Keeps a complete, checkable history</b> in
+          <span data-term="delta">Delta Lake</span>, and proves nothing went missing
+          (<span data-term="reconciliation">reconciliation</span>).</li>
+        <li><b>Flags fraud in seconds</b>, and measures how accurate those alerts are.</li>
       </ul>
     </div>
   </div>
@@ -65,37 +71,39 @@
   <h2>How the value is measured</h2>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Value lever</th><th>Measured as</th><th>Where</th></tr></thead>
+      <thead><tr><th>What the bank gets</th><th>How it is measured</th><th>Where</th></tr></thead>
       <tbody>
-        <tr><td>Detection latency, T+1 to minutes</td><td>alert time minus the source commit time of the last change behind it</td><td><a href="results.html#latency">Results</a></td></tr>
-        <tr><td>Traceability (BCBS 239 accuracy and integrity)</td><td>alert → Silver → Bronze event → Kafka offset → SQL Server LSN or file line + sha256</td><td><a href="lineage.html">Traceability</a></td></tr>
-        <tr><td>Nothing lost, nothing invented</td><td>source row counts and balance sums vs Silver; Kafka-acknowledged events vs Bronze</td><td><a href="results.html#reconciliation">Results</a></td></tr>
-        <tr><td>Detection quality</td><td>precision and recall per rule against fraud the simulator planted</td><td><a href="results.html#detection">Results</a></td></tr>
-        <tr><td>Lower load on source systems</td><td>one extraction per source, any number of consumers on Kafka</td><td><a href="architecture.html">Architecture</a></td></tr>
+        <tr><td>Faster fraud detection: from next day to seconds</td><td>Time from a change being saved in the source to the alert being raised (<span data-term="latency">latency</span>)</td><td><a href="results.html#latency">Results</a></td></tr>
+        <tr><td>Every number traceable to its source (<span data-term="bcbs239">BCBS 239</span>)</td><td>Any alert can be followed back to the exact database transaction or file line (<span data-term="lineage">lineage</span>)</td><td><a href="lineage.html">Traceability</a></td></tr>
+        <tr><td>Nothing lost, nothing invented</td><td>Row counts and account balance totals compared between source and copy after every run</td><td><a href="results.html#reconciliation">Results</a></td></tr>
+        <tr><td>Alerts worth acting on</td><td>Share of alerts that were real fraud (<span data-term="precision">precision</span>) and share of fraud caught (<span data-term="recall">recall</span>)</td><td><a href="results.html#detection">Results</a></td></tr>
+        <tr><td>Less load on old systems</td><td>Each source is read once; every other consumer reads the shared stream</td><td><a href="architecture.html">Architecture</a></td></tr>
       </tbody>
     </table>
   </div>
 
-  <h2>Stack</h2>
+  <h2>Technology, and what each part does</h2>
   <div class="grid grid-3">
-    <div class="card"><h3>Capture</h3><p class="muted">Python adapters run from Databricks notebooks. SQL Server native CDC; Azure File Share SDK with a Delta manifest.</p></div>
-    <div class="card"><h3>Transport</h3><p class="muted">Kafka (Confluent): one topic per entity, idempotent producer, a dead-letter topic for bad records.</p></div>
-    <div class="card"><h3>Storage</h3><p class="muted">Delta Lake: control and audit tables, Bronze (dedup), Silver (MERGE with ordering guard), Gold alerts.</p></div>
-    <div class="card"><h3>Orchestration</h3><p class="muted">Databricks Workflows via an Asset Bundle: a for-each task over the sources, then Bronze, Silver, Gold and reconciliation.</p></div>
-    <div class="card"><h3>Processing</h3><p class="muted">Apache Spark Structured Streaming with <code>availableNow</code> triggers, and Spark SQL window functions for the rules.</p></div>
-    <div class="card"><h3>Quality</h3><p class="muted">pytest (unit, Spark, SQL Server integration), ruff, GitHub Actions CI.</p></div>
+    <div class="card"><h3>Capture</h3><p class="muted">Small Python programs (<span data-term="adapter">source adapters</span>) run as Databricks <span data-term="notebook">notebooks</span>. One reads <span data-term="sql-server">SQL Server</span>'s change log; one watches an <span data-term="azure-files">Azure File Share</span>.</p></div>
+    <div class="card"><h3>Transport</h3><p class="muted"><span data-term="kafka">Kafka</span> on <span data-term="confluent">Confluent</span>: one <span data-term="topic">topic</span> per table, plus a <span data-term="dlq">dead-letter queue</span> for records that fail validation.</p></div>
+    <div class="card"><h3>Storage</h3><p class="muted"><span data-term="delta">Delta Lake</span> tables in three <span data-term="medallion">layers</span>: raw events, current records, and fraud alerts, plus an <span data-term="audit">audit trail</span>.</p></div>
+    <div class="card"><h3>Scheduling</h3><p class="muted">One <span data-term="workflows">Databricks Workflows job</span>, defined in an <span data-term="bundle">Asset Bundle</span> so the whole setup is deployed with one command.</p></div>
+    <div class="card"><h3>Processing</h3><p class="muted"><span data-term="spark">Apache Spark</span> reads new events incrementally (<span data-term="streaming">Structured Streaming</span>) and runs the fraud rules in SQL.</p></div>
+    <div class="card"><h3>Quality</h3><p class="muted">Automated tests and checks on every change (<span data-term="ci">CI</span>), including one against a real SQL Server.</p></div>
   </div>
 
   <h2>Scope, stated plainly</h2>
   <div class="notice">
-    The MVP covers <b>SQL Server</b> and <b>Azure File Share</b>. DB2 and SingleStore adapters
-    are next (see <a href="decisions.html">Decisions</a>): neither has a free cloud tier that
-    supports CDC, so they will be tested locally in Docker. The numbers on this site come
-    from a real local run (Docker SQL Server and Confluent Kafka, local Spark and Delta). The
-    same code runs on Databricks through the Asset Bundle.
+    This first version connects <b>SQL Server</b> and an <b>Azure File Share</b>. The
+    <span data-term="mainframe">DB2</span> and <span data-term="singlestore">SingleStore</span>
+    connectors come next (see <a href="decisions.html">Decisions</a>). The numbers on this
+    site come from a real run on a laptop-sized setup (<span data-term="docker">Docker</span>),
+    not from a cloud deployment. The same code deploys to Databricks unchanged. All data is
+    <span data-term="synthetic-data">synthetic</span>.
   </div>
 </main>
 <script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
 <script>
   loadMetrics().then((m) => {
     const d = Object.values(m.detection);
@@ -104,10 +112,10 @@
     const recon = m.rounds.at(-1).reconciliation;
     const passed = recon.filter((c) => c.status === "PASS").length;
     const tiles = [
-      [fmt.int(m.table_counts.cdc_event_audit), "change events captured and published"],
-      [fmt.secs(m.latency_seconds.p50), "median source-commit → alert latency"],
-      [`${caught} / ${planted}`, "planted fraud cases detected"],
-      [`${passed} / ${recon.length}`, "reconciliation checks passing"],
+      [fmt.int(m.table_counts.cdc_event_audit), "changes captured and published"],
+      [fmt.secs(m.latency_seconds.p50), "typical time from change to fraud alert"],
+      [`${caught} / ${planted}`, "planted fraud cases caught"],
+      [`${passed} / ${recon.length}`, "data completeness checks passing"],
     ];
     document.getElementById("headline").innerHTML = tiles.map(([v, l]) =>
       `<div class="card stat"><div class="value">${v}</div><div class="label">${l}</div></div>`).join("");

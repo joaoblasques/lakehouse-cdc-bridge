@@ -4,101 +4,110 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Decisions · Lakehouse CDC Bridge</title>
-  <meta name="description" content="Architecture decision records and the roadmap: why capture runs in Databricks, delivery guarantees, what is out of scope and what comes next.">
+  <meta name="description" content="The main design decisions, what each one costs, and what comes next.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="decisions">
 <main>
   <section class="hero">
     <div class="eyebrow">Decisions</div>
-    <h1>Architecture decision records</h1>
-    <p class="lead">The choices that shaped the project: what was considered, what was picked,
-      and what it costs.</p>
+    <h1>The choices behind the design, and what each one costs</h1>
+    <p class="lead">Each decision is written up as a short record
+      (<span data-term="adr">ADR</span>): the situation, what was chosen, and the price paid.</p>
   </section>
 
   <details class="adr" open>
-    <summary>ADR-001 · Capture runs in Databricks notebooks, not Debezium</summary>
-    <p><b>Context.</b> The textbook setup is Debezium on Kafka Connect, writing to Kafka, with
-      Databricks as a consumer. The target platform does the reverse: Databricks applications
-      monitor the sources and publish events to Confluent.</p>
-    <p><b>Decision.</b> Capture is Python adapters run as Databricks notebook tasks, with
-      watermarks and audit in Delta.</p>
-    <p><b>Consequences.</b> One platform to operate and one place for lineage and access
-      control (Unity Catalog). It also covers sources Debezium can't, such as an SMB file
-      share. The cost is polling latency (the schedule interval) instead of streaming from the
-      log, and the capture code is ours to maintain.</p>
+    <summary>ADR-001 · Changes are captured inside Databricks, not by a separate tool</summary>
+    <p><b>Situation.</b> The usual open-source setup uses a separate tool (Debezium) to push
+      database changes into <span data-term="kafka">Kafka</span>, and
+      <span data-term="databricks">Databricks</span> only reads them. The target platform works
+      the other way round: Databricks itself watches the sources and publishes to Kafka.</p>
+    <p><b>Decision.</b> Capture is written as small Python <span data-term="adapter">adapters</span>
+      run from Databricks <span data-term="notebook">notebooks</span>, with bookmarks and audit
+      records stored in <span data-term="delta">Delta</span>.</p>
+    <p><b>Cost and benefit.</b> One platform to run, one place for access control and
+      <span data-term="lineage">lineage</span> (<span data-term="unity-catalog">Unity Catalog</span>),
+      and it handles sources Debezium can't, like a shared folder of files. The price: changes
+      are collected on a schedule rather than the instant they happen, and the capture code is
+      ours to maintain.</p>
   </details>
 
   <details class="adr">
-    <summary>ADR-002 · At-least-once on the wire, exactly-once in Delta</summary>
-    <p><b>Decision.</b> No Kafka transactions. The producer is idempotent
-      (<code>enable.idempotence</code>, <code>acks=all</code>), the watermark is committed
-      only after a flush succeeds, event IDs are deterministic, Bronze deduplicates on
-      <code>event_id</code>, and Silver ignores anything not newer than what it already has.</p>
-    <p><b>Why.</b> Kafka transactions would not cover the Delta writes anyway. Deterministic
-      IDs make every step safe to retry, which is simpler to reason about and to test.</p>
-    <p><b>Cost.</b> A non-Delta consumer must also deduplicate on <code>event_id</code>. That
-      is documented in the event contract.</p>
+    <summary>ADR-002 · Duplicates are allowed in transit, removed on arrival</summary>
+    <p><b>Decision.</b> No Kafka transactions. Instead: Kafka confirms every message
+      (<span data-term="acks">acks=all</span>), the bookmark moves only after that confirmation,
+      every change carries an <span data-term="event-id">ID derived from the change itself</span>,
+      Bronze drops repeated IDs, and Silver ignores anything older than what it holds.</p>
+    <p><b>Why.</b> Kafka transactions wouldn't cover the Delta writes anyway. Making every step
+      safe to repeat (<span data-term="idempotent">idempotent</span>) is simpler to reason about
+      and to test.</p>
+    <p><b>Cost.</b> Any other consumer of the topics must also drop repeated IDs. That is part of
+      the documented <span data-term="data-contract">data contract</span>.</p>
   </details>
 
   <details class="adr">
-    <summary>ADR-003 · File-share CDC with a manifest, not Auto Loader</summary>
-    <p>Auto Loader reads ADLS, Blob storage and Unity Catalog volumes, not Azure Files. A copy
-      step (Azure Files → ADLS) followed by Auto Loader would work, but it adds a hop and a
-      second place where files can go missing. The adapter lists the share directly and keeps
-      <code>(name, etag, sha256)</code> per version, so a re-sent file is detected as an
-      update.</p>
+    <summary>ADR-003 · Partner files are tracked with a file list, not Auto Loader</summary>
+    <p><span data-term="auto-loader">Auto Loader</span> can't read an
+      <span data-term="azure-files">Azure File Share</span>. Copying files to a supported storage
+      first would work, but adds a step where files can go missing. The pipeline reads the share
+      directly and records every file version it has processed (name,
+      <span data-term="etag">ETag</span>, <span data-term="hash">fingerprint</span>), so a
+      corrected file sent again is recognised as an update.</p>
   </details>
 
   <details class="adr">
-    <summary>ADR-004 · Soft deletes in Silver</summary>
-    <p>Silver keeps deleted rows with <code>_is_deleted = true</code>. That prevents a late,
-      older insert from bringing a deleted row back, and it keeps evidence for the fraud
-      rules: an expired card authorisation is still an attempt. Consumers that want current
-      state filter on <code>NOT _is_deleted</code>, as reconciliation does.</p>
+    <summary>ADR-004 · Deleted rows are flagged, not removed</summary>
+    <p>A delete sets a flag (<span data-term="soft-delete">soft delete</span>). This stops a late,
+      older insert from bringing a deleted row back, and keeps evidence for the fraud rules: a
+      cancelled card payment is still an attempt. Anyone wanting only current rows filters on the
+      flag, as reconciliation does.</p>
   </details>
 
   <details class="adr">
-    <summary>ADR-005 · JSON events with a published JSON Schema; Schema Registry next</summary>
-    <p>The MVP publishes JSON validated against <code>schemas/change_event.schema.json</code>
-      in tests. The production step is registering it in Confluent Schema Registry with
-      BACKWARD compatibility and serialising through it. The envelope already carries
-      <code>schema_version</code> and an event header.</p>
+    <summary>ADR-005 · Event format checked in tests now, Schema Registry next</summary>
+    <p>Events are JSON, and the tests check every adapter's output against a published
+      <span data-term="json-schema">JSON Schema</span>. The production step is registering that
+      format in Confluent's <span data-term="schema-registry">Schema Registry</span>, so Kafka
+      itself rejects a change that would break consumers.</p>
   </details>
 
   <details class="adr">
-    <summary>ADR-006 · Topics are provisioned, not auto-created</summary>
-    <p>Auto-create is disabled. <code>ensure_topics</code> creates missing topics (3
-      partitions; replication 3 on Confluent Cloud) before Bronze subscribes. An empty table
-      can't make a pipeline fail, and topic naming stays a decision someone made.</p>
+    <summary>ADR-006 · Kafka topics are created on purpose, never automatically</summary>
+    <p>Automatic topic creation is switched off. The pipeline creates any missing
+      <span data-term="topic">topics</span> with a fixed number of
+      <span data-term="partition">partitions</span> before reading. That way a table with no
+      changes yet can't break the pipeline, and every topic name is a deliberate choice.</p>
   </details>
 
   <details class="adr">
-    <summary>ADR-007 · Develop locally, run the cloud demo in short bursts</summary>
-    <p>Databricks Free Edition limits outbound internet until you verify identity. Confluent
-      Cloud's sign-up credit expires after about 30 days. Everything is therefore built and
-      tested against Docker (SQL Server 2022, Confluent <code>cp-kafka</code>) with local
-      Spark and Delta, then deployed with the Asset Bundle for a short cloud run.</p>
+    <summary>ADR-007 · Built and measured locally, deployed to the cloud in short runs</summary>
+    <p>Databricks' free edition limits internet access, and Confluent Cloud's free credit expires
+      after about a month. Everything is therefore built and tested on a laptop-sized setup
+      (<span data-term="docker">Docker</span>: SQL Server and Kafka, plus local Spark and Delta),
+      then deployed with the <span data-term="bundle">Asset Bundle</span> for short cloud
+      runs.</p>
   </details>
 
-  <h2>Roadmap</h2>
+  <h2>What comes next</h2>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Phase</th><th>Item</th><th>Why it matters</th></tr></thead>
+      <thead><tr><th>Stage</th><th>Item</th><th>Why it matters</th></tr></thead>
       <tbody>
-        <tr><td><span class="tag blue">done</span></td><td>SQL Server log CDC, File Share CDC, Kafka, Delta medallion, reconciliation, fraud rules, CI</td><td>The core loop, measured end to end</td></tr>
-        <tr><td><span class="tag">2</span></td><td>DB2 adapter: watermark + snapshot hash diff (Docker Db2 Community)</td><td>The mainframe case: CDC without log access</td></tr>
-        <tr><td><span class="tag">2</span></td><td>SingleStore adapter: watermark + row hash</td><td>Fourth source from the brief</td></tr>
-        <tr><td><span class="tag">2</span></td><td>FastAPI fraud-alert microservice consuming from Kafka</td><td>Shows microservice integration on the same events</td></tr>
-        <tr><td><span class="tag">2</span></td><td>Schema Registry serialisation; SCD2 history for accounts</td><td>Contract evolution; point-in-time questions</td></tr>
-        <tr><td><span class="tag">3</span></td><td>AI source-onboarding assistant: DDL + sample rows → draft <code>sources.yml</code> entry, a human approves</td><td>AI that speeds up the platform team's own work</td></tr>
-        <tr><td><span class="tag">3</span></td><td>MLflow fraud model trained on the labelled synthetic data</td><td>Compare against the rules on the same precision/recall harness</td></tr>
+        <tr><td><span class="tag blue">done</span></td><td>SQL Server and file-share capture, Kafka, Delta layers, reconciliation, fraud rules, automated checks</td><td>The full loop, measured end to end</td></tr>
+        <tr><td><span class="tag">next</span></td><td>DB2 connector: timestamp bookmark plus periodic comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td>The mainframe case: capturing changes without access to the log</td></tr>
+        <tr><td><span class="tag">next</span></td><td>SingleStore connector</td><td>The fourth source system</td></tr>
+        <tr><td><span class="tag">next</span></td><td>Fraud-alert <span data-term="microservice">microservice</span> reading from Kafka</td><td>Shows another application using the same events</td></tr>
+        <tr><td><span class="tag">next</span></td><td>Schema Registry; full history of account changes (<span data-term="scd2">SCD2</span>)</td><td>Safer format changes; "what did this account look like on date X?"</td></tr>
+        <tr><td><span class="tag">later</span></td><td>AI assistant that drafts the configuration for a new table from its definition, for a person to approve</td><td>Uses AI to speed up the platform team's own work</td></tr>
+        <tr><td><span class="tag">later</span></td><td>Machine-learning fraud model (<span data-term="mlflow">MLflow</span>)</td><td>Compared with the rules using the same precision and recall scoring</td></tr>
       </tbody>
     </table>
   </div>
 </main>
 <script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
 </body>
 </html>

@@ -4,138 +4,156 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CDC Patterns · Lakehouse CDC Bridge</title>
-  <meta name="description" content="One change data capture technique per source: SQL Server log-based CDC, Azure File Share manifests, DB2 and SingleStore watermarks.">
+  <meta name="description" content="How changes are detected in each source: SQL Server's change log, a partner file share, and the plans for DB2 and SingleStore.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="cdc">
 <main>
   <section class="hero">
     <div class="eyebrow">CDC patterns</div>
-    <h1>Each source gets the CDC technique it can actually support</h1>
+    <h1>Each source system needs its own way of spotting changes</h1>
     <p class="lead">
-      A bank's sources don't all expose a transaction log you can read. Picking the technique
-      per source, and knowing what each one misses, is most of the work. Every adapter emits
-      the same event envelope, so nothing downstream needs to know which technique produced it.
+      Some databases let you read their internal record of changes. Others don't, and some
+      sources are just folders of files. So each source gets the
+      <span data-term="cdc">change data capture</span> technique it can support. They all produce
+      the same <span data-term="envelope">event format</span>, so nothing downstream needs to
+      know which technique was used.
     </p>
   </section>
 
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Source</th><th>Technique</th><th>Catches deletes?</th><th>Source load</th><th>Status</th></tr></thead>
+      <thead><tr><th>Source</th><th>How changes are detected</th><th>Sees deletes?</th><th>Load on the source</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>SQL Server</td><td>Log-based (native CDC change tables)</td><td><span class="tag ok">yes</span></td><td>low: reads change tables, not base tables</td><td><span class="tag blue">built</span></td></tr>
-        <tr><td>Azure File Share</td><td>File arrival (listing + manifest)</td><td><span class="tag">n/a</span> files are append-only</td><td>low</td><td><span class="tag blue">built</span></td></tr>
-        <tr><td>DB2</td><td>Query-based watermark + periodic snapshot hash diff</td><td><span class="tag ok">via diff</span></td><td>medium: scans run on the mainframe</td><td><span class="tag">phase 2</span></td></tr>
-        <tr><td>SingleStore</td><td>Watermark + row hash (<code>OBSERVE</code> as the native option)</td><td><span class="tag ok">via diff</span></td><td>low</td><td><span class="tag">phase 2</span></td></tr>
+        <tr><td><span data-term="sql-server">SQL Server</span> (cards)</td><td>Reads the database's own change log (<span data-term="log-cdc">log-based CDC</span>)</td><td><span class="tag ok">yes</span></td><td>very low</td><td><span class="tag blue">built</span></td></tr>
+        <tr><td><span data-term="azure-files">Azure File Share</span> (partner files)</td><td>Spots new or changed files (<span data-term="file-cdc">file-arrival CDC</span>)</td><td><span class="tag">n/a</span> files are only added</td><td>very low</td><td><span class="tag blue">built</span></td></tr>
+        <tr><td><span data-term="mainframe">DB2</span> (mainframe)</td><td>Asks for rows changed since last time, plus a periodic full comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td><span class="tag ok">via comparison</span></td><td>medium: queries run on the mainframe</td><td><span class="tag">next</span></td></tr>
+        <tr><td><span data-term="singlestore">SingleStore</span> (payments)</td><td>Same approach as DB2; its native change feed is the production option</td><td><span class="tag ok">via comparison</span></td><td>low</td><td><span class="tag">next</span></td></tr>
       </tbody>
     </table>
   </div>
 
-  <h2 id="sqlserver">SQL Server: log-based CDC</h2>
+  <h2 id="sqlserver">SQL Server: reading the change log</h2>
+  <p class="plain"><b>In one sentence:</b> SQL Server already records every change it makes, and
+    the pipeline reads that record from where it left off last time.</p>
   <div class="grid grid-2">
     <div class="card">
-      <p>SQL Server Agent's capture job reads the transaction log into
-        <code>cdc.&lt;schema&gt;_&lt;table&gt;_CT</code> tables. The adapter reads them between
-        the last LSN it processed (the watermark, stored in Delta) and the current maximum LSN:</p>
-<pre><code>SELECT sys.fn_cdc_map_lsn_to_time(__$start_lsn) AS __commit_ts, *
-FROM cdc.fn_cdc_get_all_changes_dbo_accounts(@from_lsn, @to_lsn,
-                                             N'all update old')
-ORDER BY __$start_lsn, __$seqval, __$operation</code></pre>
-      <p class="muted small"><code>all update old</code> returns the before image (operation 3)
-        and after image (operation 4) of each update. The adapter pairs them on
-        <code>(start_lsn, seqval)</code> into one <code>u</code> event.</p>
+      <h3>How it works</h3>
+      <ol class="small">
+        <li>Every database keeps a <span data-term="transaction-log">transaction log</span>.
+          With CDC switched on, SQL Server's <span data-term="capture-job">capture job</span>
+          copies each change from that log into a readable change table.</li>
+        <li>Each change has a position number, its <span data-term="lsn">LSN</span>, and
+          positions only go up.</li>
+        <li>The pipeline remembers the last LSN it handled (its
+          <span data-term="watermark">watermark</span>) and asks SQL Server for everything after
+          it.</li>
+        <li>An update arrives as two rows, "before" and "after". The pipeline joins them into one
+          event, so consumers see what changed.</li>
+      </ol>
+<pre><code>-- every change to accounts between two log positions
+SELECT * FROM cdc.fn_cdc_get_all_changes_dbo_accounts(
+         @from_lsn, @to_lsn, N'all update old')</code></pre>
     </div>
     <div class="card">
-      <h3>What can go wrong, and how it's handled</h3>
+      <h3>What can go wrong, and how it is handled</h3>
       <ul class="small">
-        <li><b>Retention cleanup outruns the pipeline.</b> If the stored LSN is older than
-          <code>sys.fn_cdc_get_min_lsn()</code>, changes were purged before they were read. The
-          adapter raises <code>CdcGapError</code> instead of skipping them, so the table gets
-          re-snapshotted.</li>
-        <li><b>Capture job lag.</b> A heartbeat table, also CDC-enabled, is written after each
-          batch. Its arrival in the change table measures how far the Agent job is behind.</li>
-        <li><b>Money precision.</b> <code>DECIMAL(18,2)</code> is carried as a string in the
-          event and parsed back to <code>DECIMAL(18,2)</code> in Silver. It never passes
-          through a float.</li>
-        <li><b>Order.</b> The Kafka key is <code>table:primary key</code>, so every change to one
-          row lands on one partition, in LSN order.</li>
+        <li><b>The pipeline is down too long.</b> SQL Server deletes old changes after a few days
+          (<span data-term="retention">retention</span>). If the bookmark is older than the oldest
+          change still kept, the pipeline stops with an error instead of silently skipping the
+          gap.</li>
+        <li><b>The capture job falls behind.</b> The pipeline writes a
+          <span data-term="heartbeat">heartbeat</span> row and times how long it takes to come
+          back through CDC.</li>
+        <li><b>Money gets rounded.</b> Amounts travel as exact text ("1520.30"), never as
+          floating-point numbers, so no cent is lost.</li>
+        <li><b>Changes arrive out of order.</b> Each event's <span data-term="message-key">Kafka key</span>
+          is the row's ID, so all changes to one account stay in one
+          <span data-term="partition">partition</span>, in order.</li>
       </ul>
     </div>
   </div>
 
-  <h2 id="fileshare">Azure File Share: file-arrival CDC</h2>
+  <h2 id="fileshare">Partner files: spotting new and changed files</h2>
+  <p class="plain"><b>In one sentence:</b> the pipeline lists the shared folder, compares it with the
+    files it has already processed, and turns each row of every new file into an event.</p>
   <div class="grid grid-2">
     <div class="card">
-      <p><b>Auto Loader cannot read Azure Files.</b> It supports ADLS, Blob storage and Unity
-        Catalog volumes; Azure Files is an SMB share. So the adapter lists the share through
-        the storage SDK and compares each file's <code>(name, etag)</code> with what it has
-        already processed:</p>
+      <h3>How it works</h3>
+      <p class="small">Databricks' usual file tool, <span data-term="auto-loader">Auto Loader</span>,
+        can't read an Azure File Share. So the pipeline reads the share directly and keeps a list
+        of every file it has processed, with the file's version tag
+        (<span data-term="etag">ETag</span>) and fingerprint
+        (<span data-term="hash">SHA-256 hash</span>).</p>
       <ul class="small">
-        <li><b>New file</b> → one <code>c</code> event per row.</li>
-        <li><b>Same name, new etag</b> (partner re-sent a corrected file) → <code>u</code>
-          events. Silver upserts on <code>transfer_id</code>.</li>
-        <li><b>Unchanged</b> → skipped.</li>
+        <li><b>New file:</b> each row becomes an "insert" event.</li>
+        <li><b>Same file name, new content</b> (the partner re-sent a corrected file): its rows
+          become "update" events.</li>
+        <li><b>Unchanged file:</b> skipped.</li>
       </ul>
-      <p class="small muted">Each event's position is <code>file:line@sha256</code>, so an
-        auditor can locate the exact line in the exact version of the file.</p>
+      <p class="small muted">Each event records its file, line number and file fingerprint, so an
+        auditor can find the exact line in the exact version of the file.</p>
     </div>
     <div class="card">
-      <h3>Bad rows go to the DLQ, not the floor</h3>
-      <p class="small">Each row is validated before it becomes an event: required fields,
-        amount format, IBAN mod-97 check. A partner who sends <code>1.250,00</code> (European
-        format) produces a message on <code>banking.cdc.dlq</code> with the reason, file and
-        line. The file manifest records how many rows were rejected, so the gap is visible in
-        Delta, not just in the logs.</p>
-<pre><code>{"source_system": "azure_fileshare",
- "position": "sepa_partner_20261001_1000.csv:14@3fa1…",
- "reason": "invalid amount",
- "raw": {"amount": "1.250,00", …}}</code></pre>
+      <h3>Bad rows are set aside, not lost</h3>
+      <p class="small">Each row is checked before it becomes an event: required fields present,
+        amount readable, and account numbers valid (<span data-term="iban">IBAN</span> check
+        digits). A row that fails goes to the
+        <span data-term="dlq">dead-letter queue</span> with the reason. For example, a partner
+        writing an amount the European way:</p>
+<pre><code>{"position": "sepa_partner_20261001_1000.csv:14@3fa1…",
+ "reason":   "invalid amount",
+ "raw":      {"amount": "1.250,00", …}}</code></pre>
+      <p class="small muted">The file list also records how many rows were rejected, so the gap
+        is visible in the data, not just in the logs.</p>
     </div>
   </div>
 
-  <h2 id="envelope">The event envelope</h2>
-  <p>Every adapter emits this shape (JSON Schema in <code>schemas/change_event.schema.json</code>).</p>
+  <h2 id="envelope">The event format every source uses</h2>
+  <p>One <span data-term="envelope">envelope</span> for every change, written down as a
+    <span data-term="json-schema">JSON Schema</span> (<code>schemas/change_event.schema.json</code>)
+    and checked by the tests. This is the project's <span data-term="data-contract">data contract</span>.</p>
 <pre><code>{
-  "event_id": "sha256(system|table|key|position)",   // deterministic: replays dedupe
-  "op": "u",                                         // c | u | d | r
+  "event_id": "…",          // fingerprint of source + table + row + position: same change, same ID
+  "op": "u",                // c = insert, u = update, d = delete
   "key":    {"account_id": 42},
-  "before": {"account_id": 42, "balance": "1520.30", …},
-  "after":  {"account_id": 42, "balance": "1488.10", …},
+  "before": {"balance": "1520.30", …},    // the row before the change
+  "after":  {"balance": "1488.10", …},    // the row after the change
   "source": {
-    "system": "sqlserver", "database": "cards", "table": "dbo.accounts",
-    "position": "0x0000002c000004b80003:0x0000002c000004b80002",
-    "commit_ts": "2026-10-01T10:14:03.217",
-    "sequence": null                                 // files: "mtime|name|line"
+    "system": "sqlserver", "table": "dbo.accounts",
+    "position": "0x0000002c…:0x0000002c…",  // LSN, or file:line@fingerprint for files
+    "commit_ts": "2026-10-01T10:14:03.217"  // when the source saved it
   },
   "captured_at": "2026-10-01T10:14:06.880+00:00",
-  "trace_id": "one per capture run",
-  "payload_hash": "sha256(before, after)",
-  "schema_version": 1
+  "trace_id": "…"           // one per capture run, to group a run's events
 }</code></pre>
 
-  <h2 id="next">DB2 and SingleStore (phase 2)</h2>
+  <h2 id="next">Next: DB2 and SingleStore</h2>
   <div class="grid grid-2">
     <div class="card">
       <h3>DB2: when you can't read the log</h3>
-      <p class="small">Reading DB2's log needs IBM InfoSphere CDC or Q Replication, which a
-        consuming team often isn't allowed to install on a production mainframe. The fallback
-        is a <code>ROW CHANGE TIMESTAMP</code> column as the watermark, which catches inserts
-        and updates. It misses hard deletes, so a periodic snapshot hash diff (key plus row
-        hash, compared with the previous snapshot) emits the deletes. The trade-off is
-        latency and MIPS cost against completeness, and the scan frequency is a business
+      <p class="small">Reading a <span data-term="mainframe">mainframe's</span> change log needs
+        IBM tools that a downstream team usually isn't allowed to install. The fallback is to ask
+        for rows whose "last changed" timestamp is newer than the bookmark
+        (<span data-term="query-cdc">query-based CDC</span>). That misses deleted rows, so a
+        periodic full comparison (<span data-term="snapshot">snapshot hash diff</span>) catches
+        them. The trade-off: more frequent comparisons find deletes sooner but cost more
+        mainframe time (<span data-term="mips">MIPS</span>). How often to run them is a business
         decision.</p>
     </div>
     <div class="card">
       <h3>SingleStore</h3>
-      <p class="small">SingleStore has native log-based CDC through <code>OBSERVE</code>, but
-        the free Shared edition does not support CDC pipelines. The MVP plan is a watermark on
-        an <code>updated_at</code> column plus a row hash, with <code>OBSERVE</code> recorded
-        in an ADR as the production choice on a Standard or Enterprise workspace.</p>
+      <p class="small"><span data-term="singlestore">SingleStore</span> has a native change feed
+        (<code>OBSERVE</code>), but the free tier doesn't support it. The plan is the same
+        timestamp-plus-comparison approach as DB2, with the native feed documented as the
+        production choice on a paid tier.</p>
     </div>
   </div>
 </main>
 <script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
 </body>
 </html>

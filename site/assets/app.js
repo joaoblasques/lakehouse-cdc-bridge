@@ -8,6 +8,7 @@ const PAGES = [
   ["lineage.html", "Traceability", "lineage"],
   ["decisions.html", "Decisions", "decisions"],
   ["run.html", "Run it", "run"],
+  ["glossary.html", "Glossary", "glossary"],
 ];
 
 function storageGet(key) {

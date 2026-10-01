@@ -3,6 +3,13 @@ function table(el, head, rows) {
     <tbody>${rows.map((r) => `<tr>${r.map(([v, cls]) => `<td class="${cls || ""}">${v}</td>`).join("")}</tr>`).join("")}</tbody>`;
 }
 
+const RULE_NAMES = { card_velocity: "Card velocity", impossible_travel: "Impossible travel",
+  structuring: "Structuring" };
+const RULE_TERMS = { card_velocity: "velocity", impossible_travel: "impossible-travel",
+  structuring: "structuring" };
+const CHECK_NAMES = { row_count: "rows still live", balance_sum: "sum of balances",
+  audit_to_bronze_missing: "events sent but not in Bronze" };
+
 function render(m) {
   document.getElementById("run-meta").textContent =
     `Run: ${new Date(m.generated_at).toUTCString()} · ${m.environment} · ` +
@@ -13,11 +20,11 @@ function render(m) {
   const caught = det.reduce((a, r) => a + r.caught, 0);
   const lag = m.rounds.map((r) => r.capture_job_lag_s);
   document.getElementById("tiles").innerHTML = [
-    [fmt.int(m.table_counts.cdc_event_audit), "events published to Kafka"],
-    [fmt.secs(m.latency_seconds.p50), `median latency (p95 ${fmt.secs(m.latency_seconds.p95)})`],
+    [fmt.int(m.table_counts.cdc_event_audit), "changes published to Kafka"],
+    [fmt.secs(m.latency_seconds.p50), `typical alert time (p50); slowest 5% above ${fmt.secs(m.latency_seconds.p95)} (p95)`],
     [`${caught}/${planted}`, "planted fraud cases caught"],
-    [fmt.int(m.rejects_to_dlq), "malformed partner rows sent to the DLQ"],
-    [fmt.secs(Math.max(...lag)), "worst SQL Server capture-job lag (heartbeat)"],
+    [fmt.int(m.rejects_to_dlq), "bad partner rows set aside in the dead-letter queue"],
+    [fmt.secs(Math.max(...lag)), "longest SQL Server capture delay (heartbeat)"],
     [fmt.int(m.table_counts.cdc_file_manifest), "partner files processed"],
   ].map(([v, l]) => `<div class="card stat"><div class="value">${v}</div><div class="label">${l}</div></div>`).join("");
 
@@ -28,10 +35,13 @@ function render(m) {
     `<p class="empty">p50 ${fmt.secs(m.latency_seconds.p50)}, p95 ${fmt.secs(m.latency_seconds.p95)}, max ${fmt.secs(m.latency_seconds.max)} over ${m.latency_seconds.n} alerts.</p>`;
 
   table(document.getElementById("detection-table"),
-    [["Rule"], ["Alerts", "num"], ["True positives", "num"], ["False positives", "num"],
-     ["Planted", "num"], ["Caught", "num"], ["Precision", "num"], ["Recall", "num"]],
+    [["Rule"], ["Alerts", "num"], ["Real fraud", "num"],
+     ['<span data-term="false-positive">False alarms</span>', "num"],
+     ["Planted", "num"], ["Caught", "num"],
+     ['<span data-term="precision">Precision</span>', "num"],
+     ['<span data-term="recall">Recall</span>', "num"]],
     Object.entries(m.detection).map(([rule, r]) => [
-      [`<code>${rule}</code>`], [r.alerts, "num"], [r.true_positives, "num"], [r.false_positives, "num"],
+      [`<span data-term="${RULE_TERMS[rule] || ""}">${RULE_NAMES[rule] || rule}</span>`], [r.alerts, "num"], [r.true_positives, "num"], [r.false_positives, "num"],
       [r.planted, "num"], [r.caught, "num"], [fmt.pct(r.precision), "num"], [fmt.pct(r.recall), "num"],
     ]));
 
@@ -56,15 +66,16 @@ function render(m) {
     Object.keys(stepGroups), { unit: " s" });
 
   table(document.getElementById("recon-table"),
-    [["Table"], ["Check"], ["Source", "num"], ["Delta", "num"], ["Status"]],
+    [["Table"], ["Check"], ["Source system", "num"], ["Copy in Delta", "num"], ["Result"]],
     m.rounds.at(-1).reconciliation.map((c) => [
-      [`<code>${fmt.esc(c.table_name)}</code>`], [fmt.esc(c.check_name)],
+      [`<code>${fmt.esc(c.table_name)}</code>`], [CHECK_NAMES[c.check_name] || fmt.esc(c.check_name)],
       [fmt.esc(c.source_value), "num"], [fmt.esc(c.target_value), "num"],
       [`<span class="tag ${c.status === "PASS" ? "ok" : "bad"}">${c.status}</span>`],
     ]));
 
   table(document.getElementById("counts-table"), [["Table"], ["Rows", "num"]],
     Object.entries(m.table_counts).map(([t, n]) => [[`<code>${t}</code>`], [fmt.int(n), "num"]]));
+  if (window.enhanceTerms) window.enhanceTerms(document.querySelector("main"));
 }
 
 let metrics;

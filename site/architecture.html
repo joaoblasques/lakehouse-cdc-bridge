@@ -7,20 +7,51 @@
   <meta name="description" content="How changes flow from the bank's source systems through Databricks capture, Kafka and Delta Lake to fraud alerts.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body data-page="architecture">
 <main>
   <section class="hero">
     <div class="eyebrow">Architecture</div>
-    <h1>Databricks is the CDC engine; Kafka is the contract</h1>
+    <h1>How a change travels from the bank's database to a fraud alert</h1>
     <p class="lead">
-      Capture runs <i>inside</i> Databricks: notebooks poll each source, detect what changed,
-      and publish the changes to Kafka. Downstream consumers, including this project's own
-      Delta pipeline, read the topics and never touch the source systems.
+      <span data-term="databricks">Databricks</span> does the watching: small programs check each
+      source system for changes and publish them to <span data-term="kafka">Kafka</span>. Everything
+      downstream, including this project's own tables and alerts, reads from Kafka and never
+      touches the source systems.
     </p>
   </section>
 
+  <h2 style="margin-top:8px">Follow one card payment</h2>
+  <ol class="steps">
+    <li><b>A customer pays with a card.</b> The cards system
+      (<span data-term="sql-server">SQL Server</span>) saves the payment. SQL Server also writes it
+      to its <span data-term="transaction-log">transaction log</span>, and its
+      <span data-term="capture-job">capture job</span> copies it into a change table within seconds.</li>
+    <li><b>The capture step picks it up.</b> A Databricks <span data-term="notebook">notebook</span>
+      reads every change since its last <span data-term="watermark">bookmark</span>, wraps each one
+      in the standard <span data-term="envelope">event format</span>, and gives it an
+      <span data-term="event-id">ID that never changes</span>.</li>
+    <li><b>It is published to Kafka.</b> The event goes to the card-transactions
+      <span data-term="topic">topic</span>. Kafka confirms it is stored
+      (<span data-term="acks">acks=all</span>), and only then does the pipeline record where it
+      landed (<span data-term="audit">audit trail</span>) and move its bookmark forward.</li>
+    <li><b>It lands in Bronze.</b> A <span data-term="spark">Spark</span> job copies new Kafka
+      events into the raw <span data-term="medallion">Bronze</span> table, dropping any duplicate
+      with the same ID.</li>
+    <li><b>Silver is updated.</b> The payment's current state (authorised, then settled) is applied
+      to the Silver table with a <span data-term="merge">MERGE</span>. An older change can never
+      overwrite a newer one (<span data-term="ordering-guard">ordering guard</span>).</li>
+    <li><b>The fraud rules run.</b> If this is the fifth payment on the account in ten minutes, the
+      <span data-term="velocity">velocity rule</span> writes an alert to Gold, about 20 seconds
+      after the payment was saved.</li>
+    <li><b>Everything is checked.</b> <span data-term="reconciliation">Reconciliation</span>
+      compares counts and balance totals with the source. If anything is missing, the job fails
+      loudly.</li>
+  </ol>
+
+  <h2>The whole picture</h2>
   <div class="diagram" role="img" aria-label="Data flow: sources to capture to Kafka to Bronze, Silver, Gold, with control and audit tables">
     <svg viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -113,71 +144,81 @@
     </svg>
   </div>
 
-  <h2>Job graph</h2>
-  <p>One Databricks Workflows job, defined in <code>databricks.yml</code> (Asset Bundle) and
-    scheduled every five minutes with <code>max_concurrent_runs: 1</code>, because each
-    watermark assumes a single writer.</p>
-<pre><code>capture (for_each: sqlserver_cards, partner_fileshare)
-   └─ bronze ─ silver ─┬─ gold
-                       └─ reconcile   (fails the run on any mismatch)</code></pre>
+  <h2>The scheduled job</h2>
+  <p>All steps run as one <span data-term="workflows">Databricks Workflows job</span>, defined in
+    <code>databricks.yml</code> (an <span data-term="bundle">Asset Bundle</span>). It runs every
+    five minutes, and never twice at the same time, because each source's bookmark must have
+    a single writer.</p>
+<pre><code>capture  (runs once per source: SQL Server, file share)
+   └─ bronze ─ silver ─┬─ gold        (fraud alerts)
+                       └─ reconcile   (fails the run if anything is missing)</code></pre>
+  <p class="muted small">The capture step is a <span data-term="for-each">for-each task</span>:
+    the same notebook runs once for each source listed in <code>conf/sources.yml</code>.</p>
 
   <h2>Design choices that matter</h2>
   <div class="grid grid-2">
     <div class="card">
-      <h3>Deterministic event IDs</h3>
-      <p class="muted"><code>event_id = sha256(system | table | key | source position)</code>.
-        If capture crashes after producing but before committing the watermark, the replay
-        produces the same IDs and Bronze's MERGE drops them. That gives at-least-once delivery
-        on the wire and exactly-once in Delta.</p>
+      <h3>Duplicates are harmless</h3>
+      <p class="muted">Every change gets an ID built from where it came from
+        (<span data-term="event-id">deterministic event ID</span>). If a crash makes the pipeline
+        send a change twice, both copies have the same ID and Bronze keeps only one. Kafka may
+        deliver twice, but each change takes effect once in Delta
+        (<span data-term="at-least-once">at-least-once, exactly-once</span>).</p>
     </div>
     <div class="card">
-      <h3>Watermark last</h3>
-      <p class="muted">The order is produce → flush → audit → watermark. If any message is not
-        acknowledged, the run fails and the watermark stays where it was. Data is never
-        skipped; at worst it is sent twice and deduplicated.</p>
+      <h3>The bookmark moves last</h3>
+      <p class="muted">The order is always: send to Kafka → wait for confirmation → record the
+        audit row → move the <span data-term="watermark">watermark</span>. If any step fails, the
+        bookmark stays put and the next run resends the same changes. Data can be sent twice,
+        but never skipped.</p>
     </div>
     <div class="card">
-      <h3>Ordering guard in Silver</h3>
-      <p class="muted">Silver updates a row only when the incoming source sequence (SQL Server
-        LSN, or file timestamp plus line) is newer than the stored one. Late or replayed
-        changes cannot roll a balance back.</p>
+      <h3>Old changes can't undo new ones</h3>
+      <p class="muted">Silver only accepts a change if it is newer than what it already holds,
+        using the database's own order (<span data-term="lsn">LSN</span>) or, for files, the file
+        time and line number. A late or replayed change can't roll a balance back.</p>
     </div>
     <div class="card">
-      <h3>Soft deletes</h3>
-      <p class="muted">A delete sets <code>_is_deleted</code> instead of removing the row, so
-        an older insert cannot bring it back. It also keeps evidence: an expired card
-        authorisation still counts as an attempt for the fraud rules.</p>
+      <h3>Deleted rows are kept, flagged</h3>
+      <p class="muted">A delete marks the row as deleted
+        (<span data-term="soft-delete">soft delete</span>) instead of removing it. That keeps the
+        evidence: a cancelled card payment still counts as an attempt for the fraud rules.</p>
     </div>
     <div class="card">
-      <h3>Config-driven sources</h3>
-      <p class="muted"><code>conf/sources.yml</code> lists each source's tables, keys, topic
-        and Silver schema. Adding a table is a config change. A new source type needs one
-        adapter class that implements <code>capture()</code> and <code>source_stats()</code>.</p>
+      <h3>New tables are configuration, not code</h3>
+      <p class="muted">Sources, tables, keys and topics are listed in one
+        <span data-term="yaml">configuration file</span>. A new source type needs one new
+        <span data-term="adapter">adapter</span>; everything after capture stays the same.</p>
     </div>
     <div class="card">
-      <h3>Secrets out of the repo</h3>
-      <p class="muted">Credentials come from a Databricks secret scope on the platform and
-        from environment variables locally, through the same getter. With a Confluent API key
-        present, the Kafka config switches to SASL_SSL automatically.</p>
+      <h3>No passwords in the code</h3>
+      <p class="muted">On Databricks, credentials come from a
+        <span data-term="secret-scope">secret scope</span>; locally, from environment variables.
+        With a Confluent API key present, the connection switches to an encrypted login
+        (<span data-term="sasl">SASL_SSL</span>) automatically.</p>
     </div>
   </div>
 
-  <h2>Delta tables</h2>
+  <h2 id="tables">Delta tables</h2>
+  <p class="muted">The <span data-term="delta">Delta Lake</span> tables the pipeline writes. The
+    first three run the pipeline itself (<span data-term="control-table">control tables</span>);
+    the rest hold the data.</p>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Table</th><th>Grain</th><th>Purpose</th></tr></thead>
       <tbody>
-        <tr><td><code>cdc_control</code></td><td>source</td><td>watermark (JSON), last trace ID, counts, status</td></tr>
-        <tr><td><code>cdc_event_audit</code></td><td>event</td><td>where each event landed in Kafka, with its source position and payload hash</td></tr>
-        <tr><td><code>cdc_file_manifest</code></td><td>file version</td><td>name, etag, size, sha256, rows, rejected rows</td></tr>
-        <tr><td><code>bronze_change_events</code></td><td>event</td><td>the raw envelope plus Kafka metadata; unique on <code>event_id</code></td></tr>
-        <tr><td><code>silver_*</code></td><td>entity row</td><td>current state with <code>_event_id</code>, <code>_source_sequence</code>, first and last commit time</td></tr>
-        <tr><td><code>dq_reconciliation</code></td><td>check per run</td><td>source value vs target value, PASS/FAIL</td></tr>
-        <tr><td><code>gold_fraud_alerts</code></td><td>alert</td><td>rule, account, evidence keys, latency</td></tr>
+        <tr><td><code>cdc_control</code></td><td>source</td><td>each source’s bookmark and the result of its last run</td></tr>
+        <tr><td><code>cdc_event_audit</code></td><td>event</td><td>where each event landed in Kafka (topic, partition, offset) and which source record it came from</td></tr>
+        <tr><td><code>cdc_file_manifest</code></td><td>file version</td><td>each partner file processed: name, version, fingerprint, rows accepted and rejected</td></tr>
+        <tr><td><code>bronze_change_events</code></td><td>event</td><td>every event exactly as received, never duplicated</td></tr>
+        <tr><td><code>silver_*</code></td><td>entity row</td><td>the current version of each customer, account, payment and transfer</td></tr>
+        <tr><td><code>dq_reconciliation</code></td><td>check per run</td><td>each completeness check: source value, copy value, pass or fail</td></tr>
+        <tr><td><code>gold_fraud_alerts</code></td><td>alert</td><td>each alert: rule, account, the payments that triggered it, and how fast it was raised</td></tr>
       </tbody>
     </table>
   </div>
 </main>
 <script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
 </body>
 </html>
