@@ -1,0 +1,50 @@
+# One entry per monitored source. The capture notebook is generic: adding a source is config,
+# plus an adapter class only when its CDC technique is new.
+# silver_schema is the typed shape of the row image; Silver parses events with it.
+kafka:
+  dlq_topic: banking.cdc.dlq
+
+sources:
+  sqlserver_cards:
+    type: sqlserver
+    database: cards
+    connection_secret: mssql-cards
+    tables:
+      - schema: dbo
+        table: customers
+        primary_key: [customer_id]
+        topic: banking.cdc.cards.customers
+        silver_table: silver_customers
+        silver_schema: >-
+          customer_id INT, full_name STRING, nif STRING, email STRING,
+          risk_segment STRING, created_at TIMESTAMP
+      - schema: dbo
+        table: accounts
+        primary_key: [account_id]
+        topic: banking.cdc.cards.accounts
+        silver_table: silver_accounts
+        silver_schema: >-
+          account_id INT, customer_id INT, iban STRING, account_type STRING,
+          balance DECIMAL(18,2), status STRING, updated_at TIMESTAMP
+      - schema: dbo
+        table: card_transactions
+        primary_key: [tx_id]
+        topic: banking.cdc.cards.card_transactions
+        silver_table: silver_card_transactions
+        silver_schema: >-
+          tx_id BIGINT, account_id INT, amount DECIMAL(18,2), currency STRING,
+          merchant STRING, mcc STRING, country STRING, status STRING, tx_ts TIMESTAMP
+
+  partner_fileshare:
+    type: fileshare
+    share: partner-drop
+    directory: sepa/inbound
+    connection_secret: fileshare-partner
+    tables:
+      - table: partner_transfers
+        primary_key: [transfer_id]
+        topic: banking.cdc.partner.transfers
+        silver_table: silver_partner_transfers
+        silver_schema: >-
+          transfer_id STRING, value_date DATE, booking_ts TIMESTAMP, debtor_iban STRING,
+          creditor_iban STRING, amount DECIMAL(18,2), currency STRING, reference STRING

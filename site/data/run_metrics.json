@@ -1,0 +1,1056 @@
+{
+  "generated_at": "2026-10-01T11:47:55.720729+00:00",
+  "environment": "local: docker compose (SQL Server 2022 + Confluent cp-kafka 7.7, KRaft) + Spark 4.0.1 / Delta Lake, 4 cores",
+  "params": {
+    "rounds": 6,
+    "customers": 150,
+    "seed": 2026,
+    "fresh": true,
+    "out": null
+  },
+  "rounds": [
+    {
+      "round": 0,
+      "label": "initial load",
+      "source_ops": 341,
+      "files": 0,
+      "capture_job_lag_s": 1.01,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "50bc5237-a347-43fe-b963-2f7025768ea2",
+          "events": 341,
+          "rejects": 0,
+          "ops": {
+            "c": 341
+          },
+          "files": 0,
+          "seconds": 11.720014
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "6eabfb23-b1fd-4e36-b7b2-6e419ee8a6b3",
+          "events": 0,
+          "rejects": 0,
+          "ops": {},
+          "files": 0,
+          "seconds": 3.290252
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 11.72,
+        "capture:partner_fileshare": 3.29,
+        "bronze": 6.07,
+        "silver": 12.21,
+        "gold": 5.34,
+        "reconcile": 4.42
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3683043.64",
+          "target_value": "3683043.64",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "round": 1,
+      "label": "hour 1",
+      "source_ops": 159,
+      "files": 1,
+      "capture_job_lag_s": 2.01,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "0452e825-664c-4a5e-934e-aef0a3d0233f",
+          "events": 159,
+          "rejects": 0,
+          "ops": {
+            "u": 3,
+            "c": 156
+          },
+          "files": 0,
+          "seconds": 5.208825
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "aa748daf-47b6-40e5-b2cc-827278dd26aa",
+          "events": 28,
+          "rejects": 0,
+          "ops": {
+            "c": 28
+          },
+          "files": 1,
+          "seconds": 4.233628
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 5.21,
+        "capture:partner_fileshare": 4.23,
+        "bronze": 2.85,
+        "silver": 7.46,
+        "gold": 6.2,
+        "reconcile": 4.82
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3683043.64",
+          "target_value": "3683043.64",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "156",
+          "target_value": "156",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "28",
+          "target_value": "28",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "round": 2,
+      "label": "hour 2",
+      "source_ops": 439,
+      "files": 1,
+      "capture_job_lag_s": 4.02,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "5550a5b3-d6af-46f3-9854-76f5c6426c49",
+          "events": 439,
+          "rejects": 0,
+          "ops": {
+            "u": 277,
+            "d": 10,
+            "c": 152
+          },
+          "files": 0,
+          "seconds": 3.458375
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "dc9aeeb7-f471-4d9e-a044-de887d7578d9",
+          "events": 25,
+          "rejects": 1,
+          "ops": {
+            "c": 25
+          },
+          "files": 1,
+          "seconds": 4.039155
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 3.46,
+        "capture:partner_fileshare": 4.04,
+        "bronze": 3.21,
+        "silver": 7.63,
+        "gold": 6.65,
+        "reconcile": 4.14
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3666077.68",
+          "target_value": "3666077.68",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "298",
+          "target_value": "298",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "53",
+          "target_value": "53",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "round": 3,
+      "label": "hour 3",
+      "source_ops": 440,
+      "files": 1,
+      "capture_job_lag_s": 0.5,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "dfc03f5c-c455-4996-a00e-c16610ca850e",
+          "events": 440,
+          "rejects": 0,
+          "ops": {
+            "u": 279,
+            "d": 3,
+            "c": 158
+          },
+          "files": 0,
+          "seconds": 3.975596
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "bd9c8782-b94e-49a8-8fae-86d1cfb64366",
+          "events": 29,
+          "rejects": 0,
+          "ops": {
+            "c": 29
+          },
+          "files": 1,
+          "seconds": 3.862796
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 3.98,
+        "capture:partner_fileshare": 3.86,
+        "bronze": 3.21,
+        "silver": 6.48,
+        "gold": 6.44,
+        "reconcile": 4.19
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3649773.01",
+          "target_value": "3649773.01",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "453",
+          "target_value": "453",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "82",
+          "target_value": "82",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "round": 4,
+      "label": "hour 4",
+      "source_ops": 464,
+      "files": 1,
+      "capture_job_lag_s": 1.51,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "35dd1ee1-b937-4a27-88b0-7d1edf0ded2b",
+          "events": 464,
+          "rejects": 0,
+          "ops": {
+            "u": 298,
+            "d": 6,
+            "c": 160
+          },
+          "files": 0,
+          "seconds": 3.898433
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "af2d84e8-66a4-4ee2-bd27-fdb39aa1b589",
+          "events": 25,
+          "rejects": 0,
+          "ops": {
+            "c": 25
+          },
+          "files": 1,
+          "seconds": 5.326627
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 3.9,
+        "capture:partner_fileshare": 5.33,
+        "bronze": 3.23,
+        "silver": 7.26,
+        "gold": 6.55,
+        "reconcile": 4.01
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3632511.86",
+          "target_value": "3632511.86",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "607",
+          "target_value": "607",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "107",
+          "target_value": "107",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "round": 5,
+      "label": "hour 5",
+      "source_ops": 454,
+      "files": 1,
+      "capture_job_lag_s": 4.02,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "5878159f-6b60-4c6a-9eb7-f7d9cb7f26ba",
+          "events": 454,
+          "rejects": 0,
+          "ops": {
+            "u": 295,
+            "d": 7,
+            "c": 152
+          },
+          "files": 0,
+          "seconds": 5.184311
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "f55c052d-0d4c-48a8-b4fe-d64cf6516060",
+          "events": 29,
+          "rejects": 0,
+          "ops": {
+            "c": 29
+          },
+          "files": 1,
+          "seconds": 4.645035
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 5.19,
+        "capture:partner_fileshare": 4.65,
+        "bronze": 3.61,
+        "silver": 7.22,
+        "gold": 6.14,
+        "reconcile": 4.27
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3614915.81",
+          "target_value": "3614915.81",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "752",
+          "target_value": "752",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "136",
+          "target_value": "136",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    },
+    {
+      "round": 6,
+      "label": "hour 6",
+      "source_ops": 448,
+      "files": 1,
+      "capture_job_lag_s": 4.02,
+      "captures": [
+        {
+          "source_name": "sqlserver_cards",
+          "trace_id": "9add4432-9f87-437b-b6d9-1b8d3e788ef9",
+          "events": 448,
+          "rejects": 0,
+          "ops": {
+            "u": 280,
+            "d": 9,
+            "c": 159
+          },
+          "files": 0,
+          "seconds": 3.558167
+        },
+        {
+          "source_name": "partner_fileshare",
+          "trace_id": "d905815f-e1c0-405e-b226-5400e7bbb992",
+          "events": 29,
+          "rejects": 0,
+          "ops": {
+            "c": 29
+          },
+          "files": 1,
+          "seconds": 3.942212
+        }
+      ],
+      "step_seconds": {
+        "capture:sqlserver_cards": 3.56,
+        "capture:partner_fileshare": 3.94,
+        "bronze": 3.51,
+        "silver": 6.63,
+        "gold": 6.44,
+        "reconcile": 4.71
+      },
+      "reconciliation": [
+        {
+          "table_name": "dbo.customers",
+          "check_name": "row_count",
+          "source_value": "150",
+          "target_value": "150",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "row_count",
+          "source_value": "191",
+          "target_value": "191",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.accounts",
+          "check_name": "balance_sum",
+          "source_value": "3599415.21",
+          "target_value": "3599415.21",
+          "status": "PASS"
+        },
+        {
+          "table_name": "dbo.card_transactions",
+          "check_name": "row_count",
+          "source_value": "902",
+          "target_value": "902",
+          "status": "PASS"
+        },
+        {
+          "table_name": "partner_transfers",
+          "check_name": "row_count",
+          "source_value": "165",
+          "target_value": "165",
+          "status": "PASS"
+        },
+        {
+          "table_name": "*",
+          "check_name": "audit_to_bronze_missing",
+          "source_value": "0",
+          "target_value": "0",
+          "status": "PASS"
+        }
+      ]
+    }
+  ],
+  "table_counts": {
+    "cdc_event_audit": 2910,
+    "bronze_change_events": 2910,
+    "cdc_file_manifest": 6,
+    "silver_customers": 150,
+    "silver_accounts": 191,
+    "silver_card_transactions": 937,
+    "silver_partner_transfers": 165,
+    "gold_fraud_alerts": 23
+  },
+  "events_by_table_op": [
+    {
+      "source_name": "partner_fileshare",
+      "source_table": "partner_transfers",
+      "op": "c",
+      "n": 165
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.accounts",
+      "op": "c",
+      "n": 191
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.accounts",
+      "op": "u",
+      "n": 675
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.card_transactions",
+      "op": "c",
+      "n": 937
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.card_transactions",
+      "op": "d",
+      "n": 35
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.card_transactions",
+      "op": "u",
+      "n": 739
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.customers",
+      "op": "c",
+      "n": 150
+    },
+    {
+      "source_name": "sqlserver_cards",
+      "source_table": "dbo.customers",
+      "op": "u",
+      "n": 18
+    }
+  ],
+  "rejects_to_dlq": 1,
+  "detection": {
+    "card_velocity": {
+      "alerts": 4,
+      "true_positives": 4,
+      "false_positives": 0,
+      "planted": 4,
+      "caught": 4,
+      "precision": 1.0,
+      "recall": 1.0
+    },
+    "impossible_travel": {
+      "alerts": 15,
+      "true_positives": 8,
+      "false_positives": 7,
+      "planted": 4,
+      "caught": 4,
+      "precision": 0.533,
+      "recall": 1.0
+    },
+    "structuring": {
+      "alerts": 4,
+      "true_positives": 4,
+      "false_positives": 0,
+      "planted": 4,
+      "caught": 4,
+      "precision": 1.0,
+      "recall": 1.0
+    }
+  },
+  "latency_seconds": {
+    "p50": 21.95,
+    "p95": 25.03,
+    "max": 25.08,
+    "n": 23,
+    "by_alert": [
+      {
+        "rule": "structuring",
+        "seconds": 21.94
+      },
+      {
+        "rule": "card_velocity",
+        "seconds": 22.21
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.95
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 25.08
+      },
+      {
+        "rule": "card_velocity",
+        "seconds": 18.38
+      },
+      {
+        "rule": "structuring",
+        "seconds": 25.03
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.95
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.99
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 22.76
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 25.03
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.58
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 25.03
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 22.87
+      },
+      {
+        "rule": "card_velocity",
+        "seconds": 21.95
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.59
+      },
+      {
+        "rule": "structuring",
+        "seconds": 22.2
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 18.38
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.58
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 22.76
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 21.95
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 18.38
+      },
+      {
+        "rule": "card_velocity",
+        "seconds": 21.58
+      },
+      {
+        "rule": "structuring",
+        "seconds": 18.38
+      }
+    ]
+  },
+  "lineage_samples": [
+    {
+      "alert_id": "13e0a55dedccc1d94474614595a4402ad4d737c91f2bab9613915551b8d9da09",
+      "rule": "card_velocity",
+      "account_id": 15,
+      "alert_created_at": "2026-10-01 11:44:58.012176",
+      "latency_seconds": 22.21,
+      "events": [
+        {
+          "event_id": "63cd3119b64424b043ffea9f59eb89e82f6335721b74b7ec1f5a86cd837151d6",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d000008780004:0x0000002d000008600002",
+          "source_commit_ts": "2026-10-01 11:44:35.803",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 40,
+          "entity_key": "151",
+          "after_json": "{\"account_id\":15,\"amount\":\"58.14\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5651\",\"merchant\":\"Zara\",\"status\":\"AUTHORISED\",\"tx_id\":151,\"tx_ts\":\"2026-10-01T08:07:00\"}"
+        },
+        {
+          "event_id": "c803eb7d3a36d57486db3bbc3585fd4b62ea4af911bfeeb2e1a56a03c1823ae3",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d000008780004:0x0000002d000008600003",
+          "source_commit_ts": "2026-10-01 11:44:35.803",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 56,
+          "entity_key": "152",
+          "after_json": "{\"account_id\":15,\"amount\":\"66.89\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"AUTHORISED\",\"tx_id\":152,\"tx_ts\":\"2026-10-01T08:11:47\"}"
+        },
+        {
+          "event_id": "7c982a85e9c58aaecd26ded23ea321f39354c638d1b377915d065ad6e3f5a7ee",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d000008780004:0x0000002d000008600004",
+          "source_commit_ts": "2026-10-01 11:44:35.803",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 57,
+          "entity_key": "153",
+          "after_json": "{\"account_id\":15,\"amount\":\"153.68\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"AUTHORISED\",\"tx_id\":153,\"tx_ts\":\"2026-10-01T08:12:48\"}"
+        },
+        {
+          "event_id": "d05ac45330e441bdc277c02f1bb95529e57d116bde28f72dafa3998d122faabf",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d000008780004:0x0000002d000008600005",
+          "source_commit_ts": "2026-10-01 11:44:35.803",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 58,
+          "entity_key": "154",
+          "after_json": "{\"account_id\":15,\"amount\":\"97.36\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"AUTHORISED\",\"tx_id\":154,\"tx_ts\":\"2026-10-01T08:04:55\"}"
+        },
+        {
+          "event_id": "2b7528025ba0761263f98c36b03cdfeedff2ccd9c49722f11bdc6238cbce1634",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d000008780004:0x0000002d000008600006",
+          "source_commit_ts": "2026-10-01 11:44:35.803",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 1,
+          "kafka_offset": 54,
+          "entity_key": "155",
+          "after_json": "{\"account_id\":15,\"amount\":\"193.22\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4121\",\"merchant\":\"Uber\",\"status\":\"AUTHORISED\",\"tx_id\":155,\"tx_ts\":\"2026-10-01T08:05:50\"}"
+        },
+        {
+          "event_id": "0ae2c10cd16d2079016da0e68a2f2d86280907a4bd00b0b98ae106a6e4bf54f1",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d000008780004:0x0000002d000008600007",
+          "source_commit_ts": "2026-10-01 11:44:35.803",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 1,
+          "kafka_offset": 55,
+          "entity_key": "156",
+          "after_json": "{\"account_id\":15,\"amount\":\"69.09\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Pingo Doce\",\"status\":\"AUTHORISED\",\"tx_id\":156,\"tx_ts\":\"2026-10-01T08:07:54\"}"
+        },
+        {
+          "event_id": "a340079f11ef8a0e6d6c398f8b4989ad2ae6984dc4a9ac51ddedafde29407590",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d00000be00034:0x0000002d00000be00019",
+          "source_commit_ts": "2026-10-01 11:45:08.837",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 80,
+          "entity_key": "151",
+          "after_json": "{\"account_id\":15,\"amount\":\"58.14\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5651\",\"merchant\":\"Zara\",\"status\":\"SETTLED\",\"tx_id\":151,\"tx_ts\":\"2026-10-01T08:07:00\"}"
+        },
+        {
+          "event_id": "d374a09f059b53f8fcaa80e2c62f83f27b46f6f5df14b7338fa7978a7218be4b",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d00000be00034:0x0000002d00000be0001b",
+          "source_commit_ts": "2026-10-01 11:45:08.837",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 114,
+          "entity_key": "152",
+          "after_json": "{\"account_id\":15,\"amount\":\"66.89\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"SETTLED\",\"tx_id\":152,\"tx_ts\":\"2026-10-01T08:11:47\"}"
+        },
+        {
+          "event_id": "cf0755b924e1c8e4b1d945207e74fe06834433dca1dd1a510ccdff064d37ee48",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d00000be00034:0x0000002d00000be0001d",
+          "source_commit_ts": "2026-10-01 11:45:08.837",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 115,
+          "entity_key": "153",
+          "after_json": "{\"account_id\":15,\"amount\":\"153.68\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"SETTLED\",\"tx_id\":153,\"tx_ts\":\"2026-10-01T08:12:48\"}"
+        },
+        {
+          "event_id": "fec4d8bb92a72a3fb050dd9ca386fa409a813552f9c2ad41b61a061f3c4b917e",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d00000be00034:0x0000002d00000be0001f",
+          "source_commit_ts": "2026-10-01 11:45:08.837",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 116,
+          "entity_key": "154",
+          "after_json": "{\"account_id\":15,\"amount\":\"97.36\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"SETTLED\",\"tx_id\":154,\"tx_ts\":\"2026-10-01T08:04:55\"}"
+        },
+        {
+          "event_id": "9580330218a2a7e4897fd87bb58ccffc3eb4ee54e28e954034c2db4fc29174d6",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d00000be00034:0x0000002d00000be00021",
+          "source_commit_ts": "2026-10-01 11:45:08.837",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 1,
+          "kafka_offset": 108,
+          "entity_key": "155",
+          "after_json": "{\"account_id\":15,\"amount\":\"193.22\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4121\",\"merchant\":\"Uber\",\"status\":\"SETTLED\",\"tx_id\":155,\"tx_ts\":\"2026-10-01T08:05:50\"}"
+        },
+        {
+          "event_id": "4f4629197cce93bda6ab8dfe65e529e46830ce1c33777d401d3703f540960871",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002d00000be00034:0x0000002d00000be00023",
+          "source_commit_ts": "2026-10-01 11:45:08.837",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 1,
+          "kafka_offset": 109,
+          "entity_key": "156",
+          "after_json": "{\"account_id\":15,\"amount\":\"69.09\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Pingo Doce\",\"status\":\"REVERSED\",\"tx_id\":156,\"tx_ts\":\"2026-10-01T08:07:54\"}"
+        }
+      ]
+    },
+    {
+      "alert_id": "2163760ec84f750c253eaa16cb31c8bb69e95e2125412ca7ec539d9ca00ab15a",
+      "rule": "impossible_travel",
+      "account_id": 15,
+      "alert_created_at": "2026-10-01 11:47:41.182588",
+      "latency_seconds": 21.95,
+      "events": [
+        {
+          "event_id": "ea153e2b088ebf508b67ee8e036462c6e1e4495bff1837fdefe77c3188a9c2c4",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000006680034:0x0000002e000006680031",
+          "source_commit_ts": "2026-10-01 11:47:19.12",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 515,
+          "entity_key": "790",
+          "after_json": "{\"account_id\":15,\"amount\":\"247.61\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Continente\",\"status\":\"AUTHORISED\",\"tx_id\":790,\"tx_ts\":\"2026-10-01T13:29:31\"}"
+        },
+        {
+          "event_id": "9296642674c699b2693f830f5bd9c9f645646659a364f5a3e3b2332e28cef582",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000006b80040:0x0000002e000006b8003c",
+          "source_commit_ts": "2026-10-01 11:47:19.237",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 1,
+          "kafka_offset": 596,
+          "entity_key": "937",
+          "after_json": "{\"account_id\":15,\"amount\":\"99.38\",\"country\":\"BR\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Pingo Doce\",\"status\":\"AUTHORISED\",\"tx_id\":937,\"tx_ts\":\"2026-10-01T13:22:00\"}"
+        }
+      ]
+    },
+    {
+      "alert_id": "00c12e2a960efb4c7fdd25dc3624d0de91b1881140c39fc1a5676afb876270c1",
+      "rule": "structuring",
+      "account_id": 49,
+      "alert_created_at": "2026-10-01 11:47:41.182588",
+      "latency_seconds": 21.94,
+      "events": [
+        {
+          "event_id": "0a8b7773e8154649b324eb2c73e9dd1cdf8567182169a7993f13c795e739266b",
+          "op": "c",
+          "source_system": "azure_fileshare",
+          "source_table": "partner_transfers",
+          "source_position": "sepa_partner_20261001_1300.csv:8@5604b4be0a4a",
+          "source_commit_ts": "2026-10-01 11:47:19.240702",
+          "kafka_topic": "banking.cdc.partner.transfers",
+          "kafka_partition": 1,
+          "kafka_offset": 46,
+          "entity_key": "TRF00000163",
+          "after_json": "{\"amount\":\"9816.26\",\"booking_ts\":\"2026-10-01T13:41:32+00:00\",\"creditor_iban\":\"PT50001860027907232445396\",\"currency\":\"EUR\",\"debtor_iban\":\"PT50003386820000000004996\",\"reference\":\"INV-8776-CS\",\"transfer_id\":\"TRF00000163\",\"value_date\":\"2026-10-01\"}"
+        },
+        {
+          "event_id": "6d339319f6421ddd160b16d911d14fd4c1a1ba10bc804817b4203d1875c8bfb5",
+          "op": "c",
+          "source_system": "azure_fileshare",
+          "source_table": "partner_transfers",
+          "source_position": "sepa_partner_20261001_1300.csv:17@5604b4be0a4a",
+          "source_commit_ts": "2026-10-01 11:47:19.240702",
+          "kafka_topic": "banking.cdc.partner.transfers",
+          "kafka_partition": 0,
+          "kafka_offset": 52,
+          "entity_key": "TRF00000164",
+          "after_json": "{\"amount\":\"9338.89\",\"booking_ts\":\"2026-10-01T13:14:57+00:00\",\"creditor_iban\":\"PT50001813944361761582482\",\"currency\":\"EUR\",\"debtor_iban\":\"PT50003386820000000004996\",\"reference\":\"INV-0542-SY\",\"transfer_id\":\"TRF00000164\",\"value_date\":\"2026-10-01\"}"
+        },
+        {
+          "event_id": "6f4d4ce0e35d2166684ffd61b30852e35843417c7bc5835a69bd5f818b69bc43",
+          "op": "c",
+          "source_system": "azure_fileshare",
+          "source_table": "partner_transfers",
+          "source_position": "sepa_partner_20261001_1300.csv:25@5604b4be0a4a",
+          "source_commit_ts": "2026-10-01 11:47:19.240702",
+          "kafka_topic": "banking.cdc.partner.transfers",
+          "kafka_partition": 2,
+          "kafka_offset": 49,
+          "entity_key": "TRF00000165",
+          "after_json": "{\"amount\":\"9138.88\",\"booking_ts\":\"2026-10-01T13:46:18+00:00\",\"creditor_iban\":\"PT50001843460037961062995\",\"currency\":\"EUR\",\"debtor_iban\":\"PT50003386820000000004996\",\"reference\":\"INV-8542-QI\",\"transfer_id\":\"TRF00000165\",\"value_date\":\"2026-10-01\"}"
+        },
+        {
+          "event_id": "f28d4cd0d18530aaa73cfd66dab9a214ca875070650779c05c1f5a604bcf7d58",
+          "op": "c",
+          "source_system": "azure_fileshare",
+          "source_table": "partner_transfers",
+          "source_position": "sepa_partner_20261001_1300.csv:28@5604b4be0a4a",
+          "source_commit_ts": "2026-10-01 11:47:19.240702",
+          "kafka_topic": "banking.cdc.partner.transfers",
+          "kafka_partition": 1,
+          "kafka_offset": 54,
+          "entity_key": "TRF00000166",
+          "after_json": "{\"amount\":\"9503.45\",\"booking_ts\":\"2026-10-01T13:13:29+00:00\",\"creditor_iban\":\"PT50001868000929633149437\",\"currency\":\"EUR\",\"debtor_iban\":\"PT50003386820000000004996\",\"reference\":\"INV-7641-OT\",\"transfer_id\":\"TRF00000166\",\"value_date\":\"2026-10-01\"}"
+        }
+      ]
+    }
+  ]
+}

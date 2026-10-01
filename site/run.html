@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run It · Lakehouse CDC Bridge</title>
+  <meta name="description" content="Run the full pipeline locally with Docker and Spark, or deploy it to Databricks with the Asset Bundle.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="run">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Run it</div>
+    <h1>Reproduce the results</h1>
+    <p class="lead">On your own machine in about 15 minutes, with no cloud account. You need
+      <span data-term="docker">Docker</span>, Java 17 or newer (for Spark) and
+      <a href="https://docs.astral.sh/uv/">uv</a> (a Python package manager).</p>
+  </section>
+
+  <h2>On your machine</h2>
+  <ol class="steps">
+    <li><b>Clone and install</b>
+<pre><code>git clone https://github.com/joaoblasques/lakehouse-cdc-bridge && cd lakehouse-cdc-bridge
+uv sync --all-extras</code></pre></li>
+    <li><b>Start the two source-side services</b>: SQL Server (with its
+      <span data-term="capture-job">capture job</span> enabled) and Kafka (in
+      <span data-term="kraft">KRaft</span> mode)
+<pre><code>docker compose up -d --wait</code></pre></li>
+    <li><b>Run the automated tests</b> (<span data-term="pytest">pytest</span>): first the fast
+      ones, then one that uses the real SQL Server
+<pre><code>uv run pytest
+uv run pytest -m integration</code></pre></li>
+    <li><b>Run the whole pipeline</b>: it loads starting data, simulates 6 hours of bank
+      activity, processes each hour end to end, and writes the results to
+      <code>site/data/run_metrics.json</code>
+<pre><code>uv run python scripts/run_local.py --fresh</code></pre></li>
+    <li><b>Open this website locally</b> to see your own numbers
+<pre><code>python -m http.server -d site 8000   # http://localhost:8000</code></pre></li>
+  </ol>
+
+  <h2>On Databricks and Confluent Cloud</h2>
+  <ol class="steps">
+    <li><b>Store the passwords</b> in a <span data-term="secret-scope">secret scope</span>.
+      The key names match <code>conf/sources.yml</code>
+<pre><code>databricks secrets create-scope banking-cdc
+databricks secrets put-secret banking-cdc mssql-cards-host      # Azure SQL server
+databricks secrets put-secret banking-cdc mssql-cards-port
+databricks secrets put-secret banking-cdc mssql-cards-user
+databricks secrets put-secret banking-cdc mssql-cards-password
+databricks secrets put-secret banking-cdc fileshare-partner-connection-string
+databricks secrets put-secret banking-cdc kafka-bootstrap        # Confluent Cloud
+databricks secrets put-secret banking-cdc kafka-api-key
+databricks secrets put-secret banking-cdc kafka-api-secret</code></pre></li>
+    <li><b>Switch on CDC in the Azure SQL database</b> by running
+      <code>sql/sqlserver/001_cards_schema.sql</code>. Azure SQL runs its own capture scheduler,
+      so there is no Agent to set up.</li>
+    <li><b>Deploy and run</b> with the <span data-term="bundle">Asset Bundle</span>: one
+      command builds the code and creates the job
+<pre><code>databricks bundle deploy -t dev
+databricks bundle run banking_cdc</code></pre></li>
+  </ol>
+  <div class="notice">The job is deployed with its schedule <b>paused</b>. Start it on purpose: a
+    five-minute schedule on a trial account uses up its free credit faster than you'd expect.</div>
+
+  <h2>Where things are in the code</h2>
+<pre><code>conf/sources.yml            sources, tables, keys, topics, Silver schemas
+src/banking_cdc/
+  envelope.py               the change event (deterministic event_id)
+  generator.py              synthetic Banco Atlântico + planted fraud
+  sources/sqlserver.py      log-based CDC (LSN watermark, gap detection)
+  sources/fileshare.py      file-arrival CDC (etag + sha256 manifest, DLQ)
+  pipeline/                 capture, Bronze/Silver, reconciliation, Gold rules
+  evaluate.py               precision / recall against ground truth
+notebooks/                  thin Databricks tasks over the package
+databricks.yml              Asset Bundle: Workflows job with for-each capture
+scripts/run_local.py        end-to-end run → site/data/run_metrics.json
+schemas/                    event JSON Schema
+site/                       this website (static HTML/CSS/JS)</code></pre>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
+</body>
+</html>

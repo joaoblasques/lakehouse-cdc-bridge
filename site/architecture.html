@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture · Lakehouse CDC Bridge</title>
+  <meta name="description" content="How changes flow from the bank's source systems through Databricks capture, Kafka and Delta Lake to fraud alerts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="architecture">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Architecture</div>
+    <h1>How a change travels from the bank's database to a fraud alert</h1>
+    <p class="lead">
+      <span data-term="databricks">Databricks</span> does the watching: small programs check each
+      source system for changes and publish them to <span data-term="kafka">Kafka</span>. Everything
+      downstream, including this project's own tables and alerts, reads from Kafka and never
+      touches the source systems.
+    </p>
+  </section>
+
+  <h2 style="margin-top:8px">Follow one card payment</h2>
+  <ol class="steps">
+    <li><b>A customer pays with a card.</b> The cards system
+      (<span data-term="sql-server">SQL Server</span>) saves the payment. SQL Server also writes it
+      to its <span data-term="transaction-log">transaction log</span>, and its
+      <span data-term="capture-job">capture job</span> copies it into a change table within seconds.</li>
+    <li><b>The capture step picks it up.</b> A Databricks <span data-term="notebook">notebook</span>
+      reads every change since its last <span data-term="watermark">bookmark</span>, wraps each one
+      in the standard <span data-term="envelope">event format</span>, and gives it an
+      <span data-term="event-id">ID that never changes</span>.</li>
+    <li><b>It is published to Kafka.</b> The event goes to the card-transactions
+      <span data-term="topic">topic</span>. Kafka confirms it is stored
+      (<span data-term="acks">acks=all</span>), and only then does the pipeline record where it
+      landed (<span data-term="audit">audit trail</span>) and move its bookmark forward.</li>
+    <li><b>It lands in Bronze.</b> A <span data-term="spark">Spark</span> job copies new Kafka
+      events into the raw <span data-term="medallion">Bronze</span> table, dropping any duplicate
+      with the same ID.</li>
+    <li><b>Silver is updated.</b> The payment's current state (authorised, then settled) is applied
+      to the Silver table with a <span data-term="merge">MERGE</span>. An older change can never
+      overwrite a newer one (<span data-term="ordering-guard">ordering guard</span>).</li>
+    <li><b>The fraud rules run.</b> If this is the fifth payment on the account in ten minutes, the
+      <span data-term="velocity">velocity rule</span> writes an alert to Gold, about 20 seconds
+      after the payment was saved.</li>
+    <li><b>Everything is checked.</b> <span data-term="reconciliation">Reconciliation</span>
+      compares counts and balance totals with the source. If anything is missing, the job fails
+      loudly.</li>
+  </ol>
+
+  <h2>The whole picture</h2>
+  <div class="diagram" role="img" aria-label="Data flow: sources to capture to Kafka to Bronze, Silver, Gold, with control and audit tables">
+    <svg viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z"/>
+        </marker>
+      </defs>
+
+      <!-- sources -->
+      <text x="20" y="28" font-size="12" font-weight="700" class="sub">SOURCES</text>
+      <rect class="box" x="20" y="42" width="190" height="62" rx="8"/>
+      <text x="34" y="68" font-size="14" font-weight="600">SQL Server · cards</text>
+      <text x="34" y="88" class="sub">native CDC change tables</text>
+      <rect class="box" x="20" y="118" width="190" height="62" rx="8"/>
+      <text x="34" y="144" font-size="14" font-weight="600">Azure File Share</text>
+      <text x="34" y="164" class="sub">partner SEPA CSV files</text>
+      <rect class="box edge-dash" x="20" y="194" width="190" height="52" rx="8" stroke-dasharray="4 3"/>
+      <text x="34" y="216" font-size="13" font-weight="600">DB2 · mainframe</text>
+      <text x="34" y="234" class="sub">phase 2</text>
+      <rect class="box" x="20" y="258" width="190" height="52" rx="8" stroke-dasharray="4 3"/>
+      <text x="34" y="280" font-size="13" font-weight="600">SingleStore · payments</text>
+      <text x="34" y="298" class="sub">phase 2</text>
+
+      <!-- capture -->
+      <text x="270" y="28" font-size="12" font-weight="700" class="sub">DATABRICKS WORKFLOWS</text>
+      <rect class="box-accent" x="270" y="42" width="200" height="200" rx="10"/>
+      <text x="286" y="70" font-size="14" font-weight="700">01 · cdc_capture</text>
+      <text x="286" y="90" class="sub">for-each over conf/sources.yml</text>
+      <text x="286" y="120" font-size="12">1. read watermark</text>
+      <text x="286" y="142" font-size="12">2. adapter.capture()</text>
+      <text x="286" y="164" font-size="12">3. produce + flush</text>
+      <text x="286" y="186" font-size="12">4. write audit rows</text>
+      <text x="286" y="208" font-size="12">5. commit watermark</text>
+      <text x="286" y="230" class="sub">crash before 5 = safe replay</text>
+
+      <!-- kafka -->
+      <text x="530" y="28" font-size="12" font-weight="700" class="sub">KAFKA (CONFLUENT)</text>
+      <rect class="box" x="530" y="42" width="200" height="200" rx="10"/>
+      <text x="546" y="70" font-size="13" font-weight="600">banking.cdc.cards.*</text>
+      <text x="546" y="88" class="sub">customers · accounts · card_tx</text>
+      <text x="546" y="118" font-size="13" font-weight="600">banking.cdc.partner.transfers</text>
+      <text x="546" y="148" font-size="13" font-weight="600">banking.cdc.dlq</text>
+      <text x="546" y="166" class="sub">rejected records, with reason</text>
+      <text x="546" y="198" class="sub">key = table:primary key</text>
+      <text x="546" y="216" class="sub">→ per-row ordering</text>
+      <text x="546" y="234" class="sub">idempotent producer, acks=all</text>
+
+      <!-- consumers -->
+      <rect class="box" x="790" y="42" width="190" height="62" rx="8" stroke-dasharray="4 3"/>
+      <text x="806" y="68" font-size="13" font-weight="600">Other consumers</text>
+      <text x="806" y="88" class="sub">microservices, phase 2</text>
+
+      <!-- medallion -->
+      <text x="530" y="290" font-size="12" font-weight="700" class="sub">DELTA LAKE</text>
+      <rect class="box" x="530" y="302" width="140" height="62" rx="8"/>
+      <text x="544" y="328" font-size="13" font-weight="600">02 · Bronze</text>
+      <text x="544" y="348" class="sub">dedup on event_id</text>
+      <rect class="box" x="690" y="302" width="140" height="62" rx="8"/>
+      <text x="704" y="328" font-size="13" font-weight="600">03 · Silver</text>
+      <text x="704" y="348" class="sub">MERGE, newest wins</text>
+      <rect class="box-accent" x="850" y="302" width="130" height="62" rx="8"/>
+      <text x="864" y="328" font-size="13" font-weight="600">05 · Gold</text>
+      <text x="864" y="348" class="sub">fraud alerts</text>
+      <rect class="box" x="690" y="390" width="290" height="56" rx="8"/>
+      <text x="704" y="414" font-size="13" font-weight="600">04 · Reconcile → dq_reconciliation</text>
+      <text x="704" y="432" class="sub">source ↔ Silver counts, sums · audit ↔ Bronze</text>
+
+      <!-- control -->
+      <rect class="box" x="270" y="302" width="200" height="144" rx="8"/>
+      <text x="286" y="328" font-size="13" font-weight="600">Control and audit (Delta)</text>
+      <text x="286" y="354" font-size="12">cdc_control</text>
+      <text x="286" y="372" class="sub">watermark per source</text>
+      <text x="286" y="396" font-size="12">cdc_event_audit</text>
+      <text x="286" y="414" class="sub">event_id → topic/partition/offset</text>
+      <text x="286" y="436" font-size="12">cdc_file_manifest</text>
+
+      <!-- edges -->
+      <path class="edge" d="M210 73 H270"/>
+      <path class="edge" d="M210 149 H270"/>
+      <path class="edge edge-dash" d="M210 220 H240 V200 H270"/>
+      <path class="edge edge-dash" d="M210 284 H250 V220 H270"/>
+      <path class="edge" d="M470 142 H530"/>
+      <path class="edge" d="M370 242 V302"/>
+      <path class="edge edge-dash" d="M730 73 H790"/>
+      <path class="edge" d="M600 242 V302"/>
+      <path class="edge" d="M670 333 H690"/>
+      <path class="edge" d="M830 333 H850"/>
+      <path class="edge" d="M760 364 V390"/>
+      <path class="edge edge-dash" d="M470 418 H690"/>
+    </svg>
+  </div>
+
+  <h2>The scheduled job</h2>
+  <p>All steps run as one <span data-term="workflows">Databricks Workflows job</span>, defined in
+    <code>databricks.yml</code> (an <span data-term="bundle">Asset Bundle</span>). It runs every
+    five minutes, and never twice at the same time, because each source's bookmark must have
+    a single writer.</p>
+<pre><code>capture  (runs once per source: SQL Server, file share)
+   └─ bronze ─ silver ─┬─ gold        (fraud alerts)
+                       └─ reconcile   (fails the run if anything is missing)</code></pre>
+  <p class="muted small">The capture step is a <span data-term="for-each">for-each task</span>:
+    the same notebook runs once for each source listed in <code>conf/sources.yml</code>.</p>
+
+  <h2>Design choices that matter</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Duplicates are harmless</h3>
+      <p class="muted">Every change gets an ID built from where it came from
+        (<span data-term="event-id">deterministic event ID</span>). If a crash makes the pipeline
+        send a change twice, both copies have the same ID and Bronze keeps only one. Kafka may
+        deliver twice, but each change takes effect once in Delta
+        (<span data-term="at-least-once">at-least-once, exactly-once</span>).</p>
+    </div>
+    <div class="card">
+      <h3>The bookmark moves last</h3>
+      <p class="muted">The order is always: send to Kafka → wait for confirmation → record the
+        audit row → move the <span data-term="watermark">watermark</span>. If any step fails, the
+        bookmark stays put and the next run resends the same changes. Data can be sent twice,
+        but never skipped.</p>
+    </div>
+    <div class="card">
+      <h3>Old changes can't undo new ones</h3>
+      <p class="muted">Silver only accepts a change if it is newer than what it already holds,
+        using the database's own order (<span data-term="lsn">LSN</span>) or, for files, the file
+        time and line number. A late or replayed change can't roll a balance back.</p>
+    </div>
+    <div class="card">
+      <h3>Deleted rows are kept, flagged</h3>
+      <p class="muted">A delete marks the row as deleted
+        (<span data-term="soft-delete">soft delete</span>) instead of removing it. That keeps the
+        evidence: a cancelled card payment still counts as an attempt for the fraud rules.</p>
+    </div>
+    <div class="card">
+      <h3>New tables are configuration, not code</h3>
+      <p class="muted">Sources, tables, keys and topics are listed in one
+        <span data-term="yaml">configuration file</span>. A new source type needs one new
+        <span data-term="adapter">adapter</span>; everything after capture stays the same.</p>
+    </div>
+    <div class="card">
+      <h3>No passwords in the code</h3>
+      <p class="muted">On Databricks, credentials come from a
+        <span data-term="secret-scope">secret scope</span>; locally, from environment variables.
+        With a Confluent API key present, the connection switches to an encrypted login
+        (<span data-term="sasl">SASL_SSL</span>) automatically.</p>
+    </div>
+  </div>
+
+  <h2 id="tables">Delta tables</h2>
+  <p class="muted">The <span data-term="delta">Delta Lake</span> tables the pipeline writes. The
+    first three run the pipeline itself (<span data-term="control-table">control tables</span>);
+    the rest hold the data.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table</th><th>Grain</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>cdc_control</code></td><td>source</td><td>each source’s bookmark and the result of its last run</td></tr>
+        <tr><td><code>cdc_event_audit</code></td><td>event</td><td>where each event landed in Kafka (topic, partition, offset) and which source record it came from</td></tr>
+        <tr><td><code>cdc_file_manifest</code></td><td>file version</td><td>each partner file processed: name, version, fingerprint, rows accepted and rejected</td></tr>
+        <tr><td><code>bronze_change_events</code></td><td>event</td><td>every event exactly as received, never duplicated</td></tr>
+        <tr><td><code>silver_*</code></td><td>entity row</td><td>the current version of each customer, account, payment and transfer</td></tr>
+        <tr><td><code>dq_reconciliation</code></td><td>check per run</td><td>each completeness check: source value, copy value, pass or fail</td></tr>
+        <tr><td><code>gold_fraud_alerts</code></td><td>alert</td><td>each alert: rule, account, the payments that triggered it, and how fast it was raised</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
+</body>
+</html>

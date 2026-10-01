@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glossary · Lakehouse CDC Bridge</title>
+  <meta name="description" content="Plain-language definitions of every technical term used in the project: CDC, Kafka, Databricks, Delta Lake, data quality and fraud detection.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="glossary">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Glossary</div>
+    <h1>Every technical term, in plain language</h1>
+    <p class="lead">Across the site, terms with a dotted underline open a short definition when
+      you hover, tap or tab to them. This page has all of them, grouped by topic.</p>
+  </section>
+  <input class="glossary-search" id="q" type="search" placeholder="Filter terms, e.g. Kafka, watermark…" aria-label="Filter glossary terms">
+  <nav class="toc" id="toc" aria-label="Glossary sections"></nav>
+  <div id="glossary"></div>
+  <p class="empty" id="none" hidden>No term matches that filter.</p>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
+<script>
+  const groups = {};
+  Object.entries(GLOSSARY).forEach(([key, g]) => (groups[g.group] ??= []).push([key, g]));
+  const id = (s) => "g-" + s.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  document.getElementById("toc").innerHTML = Object.keys(groups)
+    .map((name) => `<a href="#${id(name)}">${name}</a>`).join("");
+  document.getElementById("glossary").innerHTML = Object.entries(groups).map(([name, items]) => `
+    <section class="glossary-group" id="${id(name)}">
+      <h2>${name}</h2>
+      <div class="glossary-list">${items
+        .sort((a, b) => a[1].term.localeCompare(b[1].term))
+        .map(([key, g]) => `<article class="glossary-item" id="term-${key}">
+            <h3>${g.term}</h3><p>${g.short}</p>${g.long ? `<p class="more">${g.long}</p>` : ""}
+          </article>`).join("")}</div>
+    </section>`).join("");
+
+  document.getElementById("q").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    let shown = 0;
+    document.querySelectorAll(".glossary-item").forEach((el) => {
+      const hit = !q || el.textContent.toLowerCase().includes(q);
+      el.hidden = !hit;
+      shown += hit;
+    });
+    document.querySelectorAll(".glossary-group").forEach((sec) => {
+      sec.hidden = !sec.querySelector(".glossary-item:not([hidden])");
+    });
+    document.getElementById("none").hidden = shown > 0;
+  });
+  if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+</script>
+</body>
+</html>

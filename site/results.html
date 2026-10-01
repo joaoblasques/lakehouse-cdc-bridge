@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Results · Lakehouse CDC Bridge</title>
+  <meta name="description" content="Measured results of an end-to-end run: events captured, latency from source commit to alert, detection precision and recall, reconciliation.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="results">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Results</div>
+    <h1>Measured, not claimed</h1>
+    <p class="lead">Every number on this page comes from a real end-to-end run of the pipeline.
+      The run script writes them to <code>site/data/run_metrics.json</code>, and this page reads
+      that file. Run it again and the page changes.</p>
+    <p class="small muted" id="run-meta"></p>
+  </section>
+
+  <section class="grid grid-4" id="tiles"></section>
+
+  <h2 id="latency">How fast is an alert raised?</h2>
+  <p class="plain"><b>In one sentence:</b> about 20 seconds from a payment being saved in the bank's
+    database to a fraud alert being written, against next day today.</p>
+  <p class="muted">Each dot is one alert. Its value is the time between the source database saving
+    the last payment behind the alert and the alert being written
+    (<span data-term="latency">latency</span>). Here the pipeline ran straight after each batch of
+    activity, so this is pure processing time. On Databricks the job runs every 5 minutes, which
+    adds up to 5 minutes of waiting. That is still minutes instead of a day
+    (<span data-term="t-plus-1">T+1</span>). <span data-term="percentile">p50 / p95</span> are in
+    the tiles above.</p>
+  <div class="card"><div id="latency-chart"></div><div class="legend" id="latency-legend"></div></div>
+
+  <h2 id="detection">Are the alerts right?</h2>
+  <p class="plain"><b>In one sentence:</b> every planted fraud case was caught; two rules raised no
+    false alarms, and the third raises some on customers who are travelling.</p>
+  <p class="muted">The data generator plants fraud on purpose and keeps a private list of it (the
+    <span data-term="ground-truth">ground truth</span>), which never reaches the bank's systems.
+    Comparing alerts with that list gives two scores:
+    <span data-term="precision">precision</span> (how many alerts were real fraud) and
+    <span data-term="recall">recall</span> (how much fraud was caught).</p>
+  <p class="muted">The <span data-term="impossible-travel">impossible-travel rule</span>'s
+    <span data-term="false-positive">false positives</span> are real customers starting or ending
+    a trip: a last purchase in Lisbon and a first one in Madrid within the hour. A production rule
+    would use the distance and minimum travel time between countries. One planted case can also
+    raise two alerts (going out and coming back), which is why "true positives" can be higher
+    than "planted".</p>
+  <div class="table-wrap"><table id="detection-table"></table></div>
+
+  <h2 id="events">What was captured</h2>
+  <p class="muted">Every <span data-term="event">change event</span> published, by source table and
+    type of change. Card payments get many updates (authorised, then settled or reversed), and a
+    few expired authorisations are deleted.</p>
+  <div class="card"><div id="ops-chart"></div><div class="legend" id="ops-legend"></div></div>
+
+  <h2 id="steps">How long each step takes</h2>
+  <p class="muted">Round 0 loads the starting customers and accounts. Each later round is one
+    simulated hour of bank activity, processed end to end. This ran on a small 4-core machine; a
+    Databricks cluster would be faster, but the shape is what matters: each step's time stays flat
+    as data grows, because each run only processes what is new.</p>
+  <div class="card"><div id="steps-chart"></div><div class="legend" id="steps-legend"></div></div>
+
+  <h2 id="reconciliation">Did anything go missing?</h2>
+  <p class="plain"><b>In one sentence:</b> no. After every round, the copy matched the source row for
+    row and to the cent.</p>
+  <p class="muted"><span data-term="reconciliation">Reconciliation</span> checks from the last round.
+    Row counts and balance totals are compared between the source and the Silver copy, and every
+    event Kafka confirmed is checked against Bronze. The job fails on any mismatch, so a finished
+    run means these held after every round.</p>
+  <div class="table-wrap"><table id="recon-table"></table></div>
+
+  <h2 id="tables">Rows in each table</h2>
+  <p class="muted">See the <a href="architecture.html#tables">Architecture</a> page for what each
+    <span data-term="delta">Delta</span> table holds.</p>
+  <div class="table-wrap"><table id="counts-table"></table></div>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
+<script src="assets/charts.js"></script>
+<script src="assets/results.js"></script>
+</body>
+</html>
