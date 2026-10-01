@@ -260,6 +260,7 @@ def main() -> None:
             "silver_accounts",
             "silver_card_transactions",
             "silver_partner_transfers",
+            "silver_loans",
             "gold_fraud_alerts",
         )
     }

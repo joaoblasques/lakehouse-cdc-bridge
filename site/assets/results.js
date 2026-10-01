@@ -28,6 +28,7 @@ function render(m) {
     [fmt.int(m.table_counts.cdc_file_manifest), "partner files processed"],
   ].map(([v, l]) => `<div class="card stat"><div class="value">${v}</div><div class="label">${l}</div></div>`).join("");
 
+  document.getElementById("latency-p50").textContent = fmt.secs(m.latency_seconds.p50);
   const rules = Object.keys(m.detection);
   const lat = m.latency_seconds.by_alert || [];
   if (lat.length) dotStrip(document.getElementById("latency-chart"), document.getElementById("latency-legend"), lat, rules);
@@ -70,7 +71,7 @@ function render(m) {
     m.rounds.at(-1).reconciliation.map((c) => [
       [`<code>${fmt.esc(c.table_name)}</code>`], [CHECK_NAMES[c.check_name] || fmt.esc(c.check_name)],
       [fmt.esc(c.source_value), "num"], [fmt.esc(c.target_value), "num"],
-      [`<span class="tag ${c.status === "PASS" ? "ok" : "bad"}">${c.status}</span>`],
+      [`<span class="tag ${{ PASS: "ok", FAIL: "bad" }[c.status] || ""}">${c.status}</span>`],
     ]));
 
   table(document.getElementById("counts-table"), [["Table"], ["Rows", "num"]],

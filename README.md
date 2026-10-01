@@ -24,6 +24,7 @@ recall against planted fraud, and reconciliation proving nothing was lost.
 ```
 SQL Server ──(native CDC, LSN watermark)────┐
 Azure File Share ──(etag + sha256 manifest)─┤ 01 capture (Databricks for-each task)
+DB2 ──(row-change timestamp + snapshot diff)┤
                                             ▼
                           Kafka: banking.cdc.<domain>.<entity>  (+ DLQ)
                                             │
@@ -40,8 +41,9 @@ Azure File Share ──(etag + sha256 manifest)─┤ 01 capture (Databricks for
   watermark, `event_id` is deterministic, Bronze deduplicates, and Silver ignores out-of-order
   changes.
 - **Every source gets the CDC technique it can support**: log-based for SQL Server; a file
-  manifest for Azure Files (which Auto Loader can't read); watermark plus hash diff for DB2
-  and SingleStore (phase 2).
+  manifest for Azure Files (which Auto Loader can't read); a row-change-timestamp watermark
+  plus a periodic snapshot diff for DB2, which is how hard deletes are found without log
+  access. SingleStore is next.
 - **Config-driven.** `conf/sources.yml` defines tables, keys, topics and Silver schemas. The
   notebooks are thin wrappers over a tested Python package.
 
@@ -54,8 +56,10 @@ Needs Docker, Java 17+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync --all-extras
 docker compose up -d --wait               # SQL Server 2022 (with Agent) + Confluent Kafka (KRaft)
+docker compose --profile db2 up -d db2    # optional: Db2 11.5 (4 GB, a few minutes to initialise)
 uv run pytest                             # unit + Spark/Delta tests
 uv run pytest -m integration              # real SQL Server CDC, end to end
+uv run pytest -m db2                      # real DB2: replayed events rebuild the table
 uv run python scripts/run_local.py --fresh   # full pipeline → site/data/run_metrics.json
 python -m http.server -d site 8000        # browse the results
 ```
@@ -74,7 +78,7 @@ key names are listed on the [Run it](site/run.html) page.
 
 | Path | What |
 |---|---|
-| `src/banking_cdc/sources/` | CDC adapters: SQL Server (log), Azure File Share (manifest) |
+| `src/banking_cdc/sources/` | CDC adapters: SQL Server (log), Azure File Share (manifest), DB2 (timestamp + snapshot) |
 | `src/banking_cdc/pipeline/` | capture → Kafka, Bronze/Silver, reconciliation, Gold rules |
 | `src/banking_cdc/generator.py` | synthetic bank with labelled fraud patterns |
 | `notebooks/` | Databricks tasks |
@@ -85,6 +89,6 @@ key names are listed on the [Run it](site/run.html) page.
 
 ## Roadmap
 
-DB2 and SingleStore adapters, a FastAPI fraud-alert microservice consuming from Kafka, Schema
+A SingleStore adapter, a FastAPI fraud-alert microservice consuming from Kafka, Schema
 Registry serialisation, SCD2 history, an AI assistant that drafts `sources.yml` entries from
 DDL, and an MLflow fraud model scored on the same harness as the rules.

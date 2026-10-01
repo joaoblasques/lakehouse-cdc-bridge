@@ -28,11 +28,14 @@ uv sync --all-extras</code></pre></li>
     <li><b>Start the two source-side services</b>: SQL Server (with its
       <span data-term="capture-job">capture job</span> enabled) and Kafka (in
       <span data-term="kraft">KRaft</span> mode)
-<pre><code>docker compose up -d --wait</code></pre></li>
+<pre><code>docker compose up -d --wait
+docker compose --profile db2 up -d db2   # optional: the DB2 "mainframe" (4 GB, a few minutes to start)</code></pre>
+      <p class="small muted">Without DB2 the pipeline runs with the other two sources and says so.</p></li>
     <li><b>Run the automated tests</b> (<span data-term="pytest">pytest</span>): first the fast
       ones, then one that uses the real SQL Server
 <pre><code>uv run pytest
-uv run pytest -m integration</code></pre></li>
+uv run pytest -m integration    # real SQL Server
+uv run pytest -m db2            # real DB2, if started</code></pre></li>
     <li><b>Run the whole pipeline</b>: it loads starting data, simulates 6 hours of bank
       activity, processes each hour end to end, and writes the results to
       <code>site/data/run_metrics.json</code>
@@ -51,6 +54,7 @@ databricks secrets put-secret banking-cdc mssql-cards-port
 databricks secrets put-secret banking-cdc mssql-cards-user
 databricks secrets put-secret banking-cdc mssql-cards-password
 databricks secrets put-secret banking-cdc fileshare-partner-connection-string
+databricks secrets put-secret banking-cdc db2-core-host           # and -port, -user, -password
 databricks secrets put-secret banking-cdc kafka-bootstrap        # Confluent Cloud
 databricks secrets put-secret banking-cdc kafka-api-key
 databricks secrets put-secret banking-cdc kafka-api-secret</code></pre></li>
@@ -72,6 +76,7 @@ src/banking_cdc/
   generator.py              synthetic Banco Atlântico + planted fraud
   sources/sqlserver.py      log-based CDC (LSN watermark, gap detection)
   sources/fileshare.py      file-arrival CDC (etag + sha256 manifest, DLQ)
+  sources/db2.py            query-based CDC (timestamp watermark + snapshot diff)
   pipeline/                 capture, Bronze/Silver, reconciliation, Gold rules
   evaluate.py               precision / recall against ground truth
 notebooks/                  thin Databricks tasks over the package

@@ -30,7 +30,7 @@
       <tbody>
         <tr><td><span data-term="sql-server">SQL Server</span> (cards)</td><td>Reads the database's own change log (<span data-term="log-cdc">log-based CDC</span>)</td><td><span class="tag ok">yes</span></td><td>very low</td><td><span class="tag blue">built</span></td></tr>
         <tr><td><span data-term="azure-files">Azure File Share</span> (partner files)</td><td>Spots new or changed files (<span data-term="file-cdc">file-arrival CDC</span>)</td><td><span class="tag">n/a</span> files are only added</td><td>very low</td><td><span class="tag blue">built</span></td></tr>
-        <tr><td><span data-term="mainframe">DB2</span> (mainframe)</td><td>Asks for rows changed since last time, plus a periodic full comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td><span class="tag ok">via comparison</span></td><td>medium: queries run on the mainframe</td><td><span class="tag">next</span></td></tr>
+        <tr><td><span data-term="mainframe">DB2</span> (mainframe)</td><td>Asks for rows changed since last time, plus a periodic full comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td><span class="tag ok">via comparison</span></td><td>medium: queries run on the mainframe</td><td><span class="tag blue">built</span></td></tr>
         <tr><td><span data-term="singlestore">SingleStore</span> (payments)</td><td>Same approach as DB2; its native change feed is the production option</td><td><span class="tag ok">via comparison</span></td><td>low</td><td><span class="tag">next</span></td></tr>
       </tbody>
     </table>
@@ -131,26 +131,65 @@ SELECT * FROM cdc.fn_cdc_get_all_changes_dbo_accounts(
   "trace_id": "…"           // one per capture run, to group a run's events
 }</code></pre>
 
-  <h2 id="next">Next: DB2 and SingleStore</h2>
+  <h2 id="db2">DB2: when you can't read the log</h2>
+  <p class="plain"><b>In one sentence:</b> ask DB2 for every row changed since last time, and every
+    few runs compare the whole table with what we know, to find rows that were deleted.</p>
+  <p>Reading a <span data-term="mainframe">mainframe's</span> change log needs IBM replication
+    tools that a downstream team usually isn't allowed to install. What any reader can use is a
+    <span data-term="row-change-ts">row change timestamp</span>: a column DB2 fills in by itself
+    whenever a row is inserted or updated. Here it plays the core-banking loans table.</p>
   <div class="grid grid-2">
     <div class="card">
-      <h3>DB2: when you can't read the log</h3>
-      <p class="small">Reading a <span data-term="mainframe">mainframe's</span> change log needs
-        IBM tools that a downstream team usually isn't allowed to install. The fallback is to ask
-        for rows whose "last changed" timestamp is newer than the bookmark
-        (<span data-term="query-cdc">query-based CDC</span>). That misses deleted rows, so a
-        periodic full comparison (<span data-term="snapshot">snapshot hash diff</span>) catches
-        them. The trade-off: more frequent comparisons find deletes sooner but cost more
-        mainframe time (<span data-term="mips">MIPS</span>). How often to run them is a business
-        decision.</p>
+      <h3>Pass 1, every run: "what changed since last time?"</h3>
+      <p class="small">A query for rows whose timestamp is at or after the
+        <span data-term="watermark">watermark</span>
+        (<span data-term="query-cdc">query-based CDC</span>). Three details make it safe:</p>
+      <ul class="small">
+        <li><b>Rows sharing a timestamp.</b> Several rows can carry the exact same timestamp, and
+          some may not have been visible last time. The query uses "at or after", and the
+          pipeline remembers which rows at that timestamp it already sent.</li>
+        <li><b>Transactions still in progress.</b> DB2 stamps a row when it is changed, not when
+          the change is committed. Rows from the last 2 seconds are left for the next run
+          (<span data-term="safety-lag">safety lag</span>).</li>
+        <li><b>The mainframe's own programs are untouched.</b> The timestamp column is hidden, so
+          existing <code>SELECT *</code> queries see the same columns as before.</li>
+      </ul>
+<pre><code>SELECT ROW_CHANGED, t.* FROM CORE.LOANS t
+WHERE  ROW_CHANGED >= :watermark AND ROW_CHANGED < CURRENT TIMESTAMP - 2 SECONDS
+ORDER  BY ROW_CHANGED</code></pre>
     </div>
     <div class="card">
-      <h3>SingleStore</h3>
-      <p class="small"><span data-term="singlestore">SingleStore</span> has a native change feed
-        (<code>OBSERVE</code>), but the free tier doesn't support it. The plan is the same
-        timestamp-plus-comparison approach as DB2, with the native feed documented as the
-        production choice on a paid tier.</p>
+      <h3>Pass 2, every few runs: "what disappeared?"</h3>
+      <p class="small">A deleted row is simply gone, so pass 1 can never see it. Every third run,
+        the pipeline reads every key with a <span data-term="hash">fingerprint</span> of its row
+        and compares them with what it already knows
+        (<span data-term="snapshot">snapshot diff</span>):</p>
+      <ul class="small">
+        <li><b>Key gone</b> → a delete event. Here: loan applications the customer cancelled, which
+          the core system hard-deletes.</li>
+        <li><b>Fingerprint changed but never seen</b> → an update that pass 1 missed.</li>
+        <li><b>New key never seen</b> → an insert that pass 1 missed.</li>
+      </ul>
+      <p class="small">A delete has no row left to describe, so its event carries only the key.
+        Silver keeps the last known values and marks the row deleted
+        (<span data-term="soft-delete">soft delete</span>).</p>
+      <p class="small muted">The trade-off: comparing more often finds deletes sooner, but every
+        full read costs mainframe time (<span data-term="mips">MIPS</span>). How often is a
+        business decision, set per source in <code>conf/sources.yml</code>.</p>
     </div>
+  </div>
+  <div class="notice">Because deletes only show up on the comparison runs,
+    <span data-term="reconciliation">reconciliation</span> skips DB2's row count between them
+    (marked SKIP) instead of reporting a false failure. The tests prove the approach end to end
+    against a real Db2 11.5: replaying the captured events rebuilds the source table exactly,
+    deletes included.</div>
+
+  <h2 id="next">Next: SingleStore</h2>
+  <div class="card">
+    <p class="small"><span data-term="singlestore">SingleStore</span> has a native change feed
+      (<code>OBSERVE</code>), but the free tier doesn't support it. The plan is the same
+      timestamp-plus-comparison approach as DB2, with the native feed documented as the
+      production choice on a paid tier.</p>
   </div>
 </main>
 <script src="assets/app.js"></script>

@@ -84,7 +84,7 @@
 
   <h2>Technology, and what each part does</h2>
   <div class="grid grid-3">
-    <div class="card"><h3>Capture</h3><p class="muted">Small Python programs (<span data-term="adapter">source adapters</span>) run as Databricks <span data-term="notebook">notebooks</span>. One reads <span data-term="sql-server">SQL Server</span>'s change log; one watches an <span data-term="azure-files">Azure File Share</span>.</p></div>
+    <div class="card"><h3>Capture</h3><p class="muted">Small Python programs (<span data-term="adapter">source adapters</span>) run as Databricks <span data-term="notebook">notebooks</span>. One reads <span data-term="sql-server">SQL Server</span>'s change log, one watches an <span data-term="azure-files">Azure File Share</span>, one queries <span data-term="mainframe">DB2</span>.</p></div>
     <div class="card"><h3>Transport</h3><p class="muted"><span data-term="kafka">Kafka</span> on <span data-term="confluent">Confluent</span>: one <span data-term="topic">topic</span> per table, plus a <span data-term="dlq">dead-letter queue</span> for records that fail validation.</p></div>
     <div class="card"><h3>Storage</h3><p class="muted"><span data-term="delta">Delta Lake</span> tables in three <span data-term="medallion">layers</span>: raw events, current records, and fraud alerts, plus an <span data-term="audit">audit trail</span>.</p></div>
     <div class="card"><h3>Scheduling</h3><p class="muted">One <span data-term="workflows">Databricks Workflows job</span>, defined in an <span data-term="bundle">Asset Bundle</span> so the whole setup is deployed with one command.</p></div>
@@ -94,9 +94,10 @@
 
   <h2>Scope, stated plainly</h2>
   <div class="notice">
-    This first version connects <b>SQL Server</b> and an <b>Azure File Share</b>. The
-    <span data-term="mainframe">DB2</span> and <span data-term="singlestore">SingleStore</span>
-    connectors come next (see <a href="decisions.html">Decisions</a>). The numbers on this
+    Three of the four sources are connected: <b>SQL Server</b>, an <b>Azure File Share</b> and
+    <b><span data-term="mainframe">DB2</span></b>. The
+    <span data-term="singlestore">SingleStore</span> connector comes next (see
+    <a href="decisions.html">Decisions</a>). The numbers on this
     site come from a real run on a laptop-sized setup (<span data-term="docker">Docker</span>),
     not from a cloud deployment. The same code deploys to Databricks unchanged. All data is
     <span data-term="synthetic-data">synthetic</span>.
@@ -110,12 +111,13 @@
     const planted = d.reduce((a, r) => a + r.planted, 0);
     const caught = d.reduce((a, r) => a + r.caught, 0);
     const recon = m.rounds.at(-1).reconciliation;
-    const passed = recon.filter((c) => c.status === "PASS").length;
+    const judged = recon.filter((c) => c.status !== "SKIP");
+    const passed = judged.filter((c) => c.status === "PASS").length;
     const tiles = [
       [fmt.int(m.table_counts.cdc_event_audit), "changes captured and published"],
       [fmt.secs(m.latency_seconds.p50), "typical time from change to fraud alert"],
       [`${caught} / ${planted}`, "planted fraud cases caught"],
-      [`${passed} / ${recon.length}`, "data completeness checks passing"],
+      [`${passed} / ${judged.length}`, "data completeness checks passing"],
     ];
     document.getElementById("headline").innerHTML = tiles.map(([v, l]) =>
       `<div class="card stat"><div class="value">${v}</div><div class="label">${l}</div></div>`).join("");
