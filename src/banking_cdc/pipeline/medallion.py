@@ -94,53 +94,68 @@ def run_bronze(spark, ns: str, kafka_options: dict[str, str], topics: list[str],
 
 
 def apply_silver_batch(spark, ns: str, batch, table_cfg: dict[str, Any], source_table: str) -> None:
-    """Latest change per key wins; older or replayed changes never overwrite newer state."""
+    """Latest change per key wins; older or replayed changes never overwrite newer state.
+
+    Deletes are soft. A delete may carry no row image at all (DB2's query-based CDC only knows
+    the key of a row that disappeared), so a delete never overwrites column values: Silver
+    keeps the last known version and flags it.
+    """
     from delta.tables import DeltaTable
     from pyspark.sql import Window
     from pyspark.sql import functions as F
+    from pyspark.sql.types import StructType
 
     changes = batch.where(F.col("source_table") == source_table)
     keys = table_cfg["primary_key"]
+    data_cols = [f.name for f in StructType.fromDDL(table_cfg["silver_schema"]).fields]
     image = F.from_json(
-        F.when(F.col("op") == "d", F.col("before_json")).otherwise(F.col("after_json")),
+        F.coalesce(
+            F.when(F.col("op") == "d", F.col("before_json")).otherwise(F.col("after_json")),
+            F.col("key_json"),
+        ),
         table_cfg["silver_schema"],
     )
     parsed = changes.withColumn("img", image)
+    by_key = Window.partitionBy(*[F.col(f"img.{k}") for k in keys])
+    history = by_key.orderBy("source_sequence").rowsBetween(Window.unboundedPreceding, 0)
+    # A key-only delete takes the last values seen earlier in this batch, if any.
+    filled = [
+        F.when(F.col("op") == "d", F.last(F.col(f"img.{c}"), ignorenulls=True).over(history))
+        .otherwise(F.col(f"img.{c}"))
+        .alias(c)
+        for c in data_cols
+    ]
     first_commit = (
         parsed.where(F.col("op").isin("c", "r"))
         .groupBy(*[F.col(f"img.{k}").alias(k) for k in keys])
         .agg(F.min("source_commit_ts").alias("_first_commit_ts"))
     )
     latest = (
-        parsed.withColumn(
-            "_rn",
-            F.row_number().over(
-                Window.partitionBy(*[F.col(f"img.{k}") for k in keys]).orderBy(
-                    F.col("source_sequence").desc()
-                )
-            ),
-        )
-        .where("_rn = 1")
-        .select(
-            "img.*",
+        parsed.select(
+            *filled,
             F.col("event_id").alias("_event_id"),
             F.col("op").alias("_op"),
             F.col("source_sequence").alias("_source_sequence"),
             F.col("source_commit_ts").alias("_last_commit_ts"),
             (F.col("op") == "d").alias("_is_deleted"),
             F.current_timestamp().alias("_updated_at"),
+            F.row_number().over(by_key.orderBy(F.col("source_sequence").desc())).alias("_rn"),
         )
+        .where("_rn = 1")
+        .drop("_rn")
         .join(first_commit, keys, "left")
     )
     target = DeltaTable.forName(spark, name(ns, table_cfg["silver_table"]))
-    cols = [c for c in latest.columns if c != "_first_commit_ts"]
+    meta = ["_event_id", "_op", "_source_sequence", "_last_commit_ts", "_is_deleted", "_updated_at"]
+    newer = "s._source_sequence > t._source_sequence"
     on = " AND ".join(f"t.{k} = s.{k}" for k in keys)
     (
         target.alias("t")
         .merge(latest.alias("s"), on)
+        .whenMatchedUpdate(condition=f"{newer} AND s._op = 'd'", set={c: f"s.{c}" for c in meta})
         .whenMatchedUpdate(
-            condition="s._source_sequence > t._source_sequence",
-            set={c: f"s.{c}" for c in cols}
+            condition=newer,
+            set={c: f"s.{c}" for c in data_cols + meta}
             | {"_first_commit_ts": "coalesce(t._first_commit_ts, s._first_commit_ts)"},
         )
         .whenNotMatchedInsertAll()

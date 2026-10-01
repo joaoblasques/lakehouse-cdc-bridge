@@ -14,7 +14,8 @@ class ReconciliationError(RuntimeError):
     pass
 
 
-def _check(run_id, source, table, check, src_val, tgt_val) -> dict[str, Any]:
+def _check(run_id, source, table, check, src_val, tgt_val, skip=False) -> dict[str, Any]:
+    status = "SKIP" if skip else "PASS" if str(src_val) == str(tgt_val) else "FAIL"
     return {
         "run_id": run_id,
         "checked_at": datetime.now(UTC).isoformat(),
@@ -23,8 +24,17 @@ def _check(run_id, source, table, check, src_val, tgt_val) -> dict[str, Any]:
         "check_name": check,
         "source_value": str(src_val),
         "target_value": str(tgt_val),
-        "status": "PASS" if str(src_val) == str(tgt_val) else "FAIL",
+        "status": status,
     }
+
+
+def snapshot_pending(spark, ns: str, source_name: str) -> bool:
+    """True when a query-based source has not run its delete-finding snapshot pass since its
+    last capture. Until it does, Silver legitimately still holds rows deleted at the source."""
+    from banking_cdc.pipeline.capture import read_watermark
+
+    watermark = read_watermark(spark, ns, source_name) or {}
+    return watermark.get("runs_since_snapshot", 0) != 0
 
 
 def run_reconciliation(
@@ -40,17 +50,27 @@ def run_reconciliation(
       * row_count: live rows in the source == non-deleted rows in Silver
       * balance_sum: sum of account balances matches to the cent
       * audit_to_bronze: every event Kafka acknowledged is in Bronze (no loss in transit)
+
+    For snapshot-based sources (DB2), row_count is SKIP between snapshot passes instead of a
+    false FAIL: deletes there are only visible to the snapshot.
     """
     run_id = str(uuid.uuid4())
     checks = []
     for source_name, src in cfg["sources"].items():
+        pending = "snapshot_every" in src and snapshot_pending(spark, ns, source_name)
         for t in src["tables"]:
             qualified = f"{t['schema']}.{t['table']}" if "schema" in t else t["table"]
             silver = spark.table(name(ns, t["silver_table"])).where("NOT _is_deleted")
             src_stats = stats_by_source[source_name][qualified]
             checks.append(
                 _check(
-                    run_id, source_name, qualified, "row_count", src_stats["rows"], silver.count()
+                    run_id,
+                    source_name,
+                    qualified,
+                    "row_count",
+                    src_stats["rows"],
+                    silver.count(),
+                    skip=pending,
                 )
             )
             if "balance_sum" in src_stats:

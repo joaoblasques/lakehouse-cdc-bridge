@@ -26,7 +26,9 @@ def ns(spark, request):
 
 
 def _bronze(spark, rows):
-    cols = "event_id op source_table source_sequence source_commit_ts before_json after_json"
+    cols = (
+        "event_id op source_table source_sequence source_commit_ts before_json after_json key_json"
+    )
     data = [
         (
             r["event_id"],
@@ -36,13 +38,14 @@ def _bronze(spark, rows):
             r.get("commit_ts", T0),
             json.dumps(r.get("before")) if r.get("before") else None,
             json.dumps(r.get("after")) if r.get("after") else None,
+            json.dumps(r["key"]) if r.get("key") else None,
         )
         for r in rows
     ]
     return spark.createDataFrame(
         data,
         "event_id STRING, op STRING, source_table STRING, source_sequence STRING, "
-        "source_commit_ts TIMESTAMP, before_json STRING, after_json STRING",
+        "source_commit_ts TIMESTAMP, before_json STRING, after_json STRING, key_json STRING",
     ).toDF(*cols.split())
 
 
@@ -206,3 +209,111 @@ def test_gold_rules_detect_velocity_and_travel_once(spark, ns):
     assert set(alerts) == {("card_velocity", 1), ("impossible_travel", 3)}
     assert alerts[("card_velocity", 1)].evidence_keys == ["1", "2", "3", "4", "5"]
     assert alerts[("impossible_travel", 3)].evidence_keys == ["20", "21"]
+
+
+def _loan(status, outstanding):
+    return {
+        "LOAN_ID": 7,
+        "CUSTOMER_ID": 3,
+        "PRODUCT": "PERSONAL",
+        "PRINCIPAL": "5000.00",
+        "OUTSTANDING": outstanding,
+        "RATE_PCT": "6.250",
+        "STATUS": status,
+        "OPENED_ON": "2026-10-01",
+    }
+
+
+def test_delete_without_before_image_keeps_last_values_and_flags_row(spark, ns):
+    """DB2 query-based CDC can't see a deleted row, so its delete events carry only the key."""
+    rows = [
+        {
+            "event_id": "l1",
+            "op": "c",
+            "table": "CORE.LOANS",
+            "seq": "2026-10-01T09:00:00.000001",
+            "after": _loan("APPLIED", "0.00"),
+        },
+        {
+            "event_id": "l2",
+            "op": "d",
+            "table": "CORE.LOANS",
+            "seq": "2026-10-01T09:05:00.000000|snapshot",
+            "key": {"LOAN_ID": 7},
+        },
+    ]
+    apply_silver_batch(spark, ns, _bronze(spark, rows), TABLES["LOANS"], "CORE.LOANS")
+    row = spark.table(f"{ns}.silver_loans").collect()
+    assert len(row) == 1
+    assert row[0]._is_deleted is True
+    assert row[0].STATUS == "APPLIED"  # last known values kept, not nulled
+    assert str(row[0].PRINCIPAL) == "5000.00"
+
+
+def test_key_only_delete_in_a_later_batch_keeps_values(spark, ns):
+    create = {
+        "event_id": "l1",
+        "op": "c",
+        "table": "CORE.LOANS",
+        "seq": "2026-10-01T09:00:00.000001",
+        "after": _loan("ACTIVE", "4000.00"),
+    }
+    delete = {
+        "event_id": "l2",
+        "op": "d",
+        "table": "CORE.LOANS",
+        "seq": "2026-10-01T09:05:00.000000|snapshot",
+        "key": {"LOAN_ID": 7},
+    }
+    _apply(spark, ns, [create], "LOANS", "CORE.LOANS")
+    _apply(spark, ns, [delete], "LOANS", "CORE.LOANS")
+    row = spark.table(f"{ns}.silver_loans").first()
+    assert row._is_deleted is True and row._event_id == "l2"
+    assert str(row.OUTSTANDING) == "4000.00"
+
+
+def test_reconciliation_skips_row_count_until_the_snapshot_pass(spark, ns):
+    import pytest
+
+    from banking_cdc.pipeline.capture import commit_watermark
+    from banking_cdc.pipeline.quality import ReconciliationError, run_reconciliation
+
+    cfg = {"sources": {"db2_core": CFG["sources"]["db2_core"]}}
+    _apply(
+        spark,
+        ns,
+        [
+            {
+                "event_id": "l1",
+                "op": "c",
+                "table": "CORE.LOANS",
+                "seq": "2026-10-01T09:00:00.000001",
+                "after": _loan("ACTIVE", "1.00"),
+            }
+        ],
+        "LOANS",
+        "CORE.LOANS",
+    )
+    stats = {"db2_core": {"CORE.LOANS": {"rows": 0}}}  # deleted at source, not yet seen
+
+    def wm(runs):
+        commit_watermark(
+            spark,
+            ns,
+            {
+                "source_name": "db2_core",
+                "watermark": json.dumps({"runs_since_snapshot": runs}),
+                "last_trace_id": "t",
+                "events_captured": 0,
+                "rejects": 0,
+                "status": "OK",
+                "updated_at": "2026-10-01T09:00:00",
+            },
+        )
+
+    wm(1)
+    checks = run_reconciliation(spark, ns, cfg, stats)
+    assert [c["status"] for c in checks if c["check_name"] == "row_count"] == ["SKIP"]
+    wm(0)  # a snapshot just ran: the mismatch is real now
+    with pytest.raises(ReconciliationError):
+        run_reconciliation(spark, ns, cfg, stats)

@@ -29,3 +29,18 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"  # topics are provisioned by ensure_topics
       KAFKA_NUM_PARTITIONS: 3
     ports: ["9092:9092"]
+
+  # DB2 plays the mainframe core-banking system. Heavy (4 GB image, minutes to initialise),
+  # so it only starts with: docker compose --profile db2 up -d
+  db2:
+    image: ibmcom/db2:11.5.8.0
+    profiles: [db2]
+    privileged: true  # required by the Db2 Community image
+    environment:
+      LICENSE: accept
+      DB2INSTANCE: db2inst1
+      DB2INST1_PASSWORD: "${DB2_PASSWORD:-LocalDev!Passw0rd}"
+      DBNAME: COREBANK
+      ARCHIVE_LOGS: "false"
+      AUTOCONFIG: "false"
+    ports: ["50000:50000"]

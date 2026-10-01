@@ -11,6 +11,7 @@ def test_every_configured_table_has_a_topic():
     assert topic_map(cfg["sources"]["partner_fileshare"]) == {
         "partner_transfers": "banking.cdc.partner.transfers"
     }
+    assert topic_map(cfg["sources"]["db2_core"]) == {"CORE.LOANS": "banking.cdc.core.loans"}
 
 
 def test_kafka_conf_switches_to_confluent_cloud_when_api_key_present():

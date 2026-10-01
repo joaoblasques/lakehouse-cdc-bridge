@@ -86,3 +86,61 @@ def wait_for_capture(conn: Any, beat: int, timeout: float = 120.0) -> float:
             return time.monotonic() - started
         time.sleep(0.5)
     raise TimeoutError(f"CDC capture job did not pick up heartbeat {beat} in {timeout}s")
+
+
+# -- DB2 (core banking) -------------------------------------------------------------------------
+
+DB2_SCHEMA_SQL = Path(__file__).resolve().parents[2] / "sql" / "db2" / "001_core_schema.sql"
+DB2_TABLES = {"loans": ("CORE.LOANS", "LOAN_ID")}
+
+
+def db2_connect() -> Any:
+    import ibm_db_dbi
+
+    return ibm_db_dbi.connect(
+        f"DATABASE={os.environ.get('DB2_DATABASE', 'COREBANK')};"
+        f"HOSTNAME={os.environ.get('DB2_HOST', 'localhost')};"
+        f"PORT={os.environ.get('DB2_PORT', '50000')};PROTOCOL=TCPIP;"
+        f"UID={os.environ.get('DB2_USER', 'db2inst1')};"
+        f"PWD={os.environ.get('DB2_PASSWORD', 'LocalDev!Passw0rd')};",
+        "",
+        "",
+    )
+
+
+def apply_db2_schema(sql_path: Path = DB2_SCHEMA_SQL) -> None:
+    conn = db2_connect()
+    cur = conn.cursor()
+    for statement in sql_path.read_text().split("\n;\n"):
+        body = "\n".join(ln for ln in statement.splitlines() if not ln.strip().startswith("--"))
+        if not body.strip():
+            continue
+        try:
+            cur.execute(body)
+        except Exception as exc:  # re-running the script: object (42710) or index (01550) exists
+            if not any(code in str(exc) for code in ("SQLSTATE=42710", "SQLSTATE=01550")):
+                raise
+    conn.commit()
+    conn.close()
+
+
+def _db2_sql(table: str, op: str, row: dict[str, Any]) -> tuple[str, tuple]:
+    name, pk = DB2_TABLES[table]
+    if op == "insert":
+        cols = list(row)
+        marks = ", ".join(["?"] * len(cols))
+        return f"INSERT INTO {name} ({', '.join(cols)}) VALUES ({marks})", tuple(row.values())
+    if op == "update":
+        cols = [c for c in row if c != pk]
+        sets = ", ".join(f"{c} = ?" for c in cols)
+        return f"UPDATE {name} SET {sets} WHERE {pk} = ?", (*[row[c] for c in cols], row[pk])
+    if op == "delete":
+        return f"DELETE FROM {name} WHERE {pk} = ?", (row[pk],)
+    raise ValueError(op)
+
+
+def apply_db2_batch(conn: Any, batch: Batch) -> None:
+    cur = conn.cursor()
+    for table, op, row in batch.db2_ops:
+        cur.execute(*_db2_sql(table, op, row))
+    conn.commit()

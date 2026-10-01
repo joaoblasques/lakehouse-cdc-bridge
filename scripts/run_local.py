@@ -31,6 +31,10 @@ os.environ.setdefault(
 )
 os.environ.setdefault("FILESHARE_PARTNER_DIR", str(LOCAL / "fileshare" / "sepa" / "inbound"))
 os.environ.setdefault("KAFKA_BOOTSTRAP", "localhost:9092")
+os.environ.setdefault("DB2_CORE_HOST", "localhost")
+os.environ.setdefault("DB2_CORE_PORT", "50000")
+os.environ.setdefault("DB2_CORE_USER", "db2inst1")
+os.environ.setdefault("DB2_CORE_PASSWORD", os.environ.get("DB2_PASSWORD", "LocalDev!Passw0rd"))
 
 from banking_cdc.evaluate import percentile, score  # noqa: E402
 from banking_cdc.generator import BankSimulator  # noqa: E402
@@ -50,18 +54,32 @@ from banking_cdc.pipeline.tables import ensure_tables  # noqa: E402
 from banking_cdc.pipeline.topics import ensure_topics  # noqa: E402
 from banking_cdc.seed import (  # noqa: E402
     apply_batch,
+    apply_db2_batch,
+    apply_db2_schema,
     apply_schema,
     connect,
+    db2_connect,
     wait_for_capture,
     write_files,
 )
 
 
 def fresh_stack() -> None:
-    subprocess.run(["docker", "compose", "down", "-v"], cwd=ROOT, check=True)
+    """Recreate SQL Server and Kafka. DB2 is left running (it takes minutes to initialise);
+    its table is emptied instead."""
+    services = ["sqlserver", "kafka"]
+    subprocess.run(["docker", "compose", "rm", "-sfv", *services], cwd=ROOT, check=True)
     shutil.rmtree(LOCAL, ignore_errors=True)
-    subprocess.run(["docker", "compose", "up", "-d", "--wait"], cwd=ROOT, check=True)
+    subprocess.run(["docker", "compose", "up", "-d", "--wait", *services], cwd=ROOT, check=True)
     time.sleep(5)  # broker listener settles after the container reports started
+
+
+def db2_available() -> bool:
+    try:
+        db2_connect().close()
+        return True
+    except Exception:
+        return False
 
 
 def timed(fn, *args, **kwargs):
@@ -104,6 +122,18 @@ def main() -> None:
         fresh_stack()
     cfg = load_config()
     apply_schema()
+    with_db2 = db2_available()
+    if with_db2:
+        apply_db2_schema()
+        if args.fresh:
+            reset = db2_connect()
+            reset.cursor().execute("DELETE FROM CORE.LOANS")
+            reset.commit()
+            reset.close()
+    else:
+        print("DB2 not reachable: running without the db2_core source", flush=True)
+        cfg["sources"].pop("db2_core", None)
+    db2_conn = db2_connect() if with_db2 else None
     spark = get_spark()
     spark.sparkContext.setLogLevel("ERROR")
     ensure_tables(spark, NS, cfg)
@@ -127,7 +157,11 @@ def main() -> None:
             truth += batch.ground_truth
             apply_batch(conn, batch)
             write_files(share_dir, batch)
+            if db2_conn:
+                apply_db2_batch(db2_conn, batch)
             lag = wait_for_capture(conn, beat=int(time.time() * 1000) % 2_000_000_000)
+            if db2_conn:
+                time.sleep(2.5)  # DB2 adapter skips rows younger than its 2 s safety lag
 
             steps, captures = {}, []
             for name, adapter in adapters.items():
@@ -235,7 +269,9 @@ def main() -> None:
     ).collect()
     metrics = {
         "generated_at": datetime.now(UTC).isoformat(),
-        "environment": "local: docker compose (SQL Server 2022 + Confluent cp-kafka 7.7, KRaft) "
+        "environment": "local: docker compose (SQL Server 2022"
+        + (", Db2 11.5" if with_db2 else "")
+        + " + Confluent cp-kafka 7.7, KRaft) "
         f"+ Spark {spark.version} / Delta Lake, 4 cores",
         "params": vars(args) | {"out": None},
         "rounds": rounds,
