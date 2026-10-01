@@ -91,13 +91,28 @@
       runs.</p>
   </details>
 
+  <details class="adr">
+    <summary>ADR-008 · DB2: timestamp watermark plus periodic comparison</summary>
+    <p><b>Situation.</b> No access to the mainframe's change log. The only reliable signal is
+      DB2's <span data-term="row-change-ts">row change timestamp</span>, which can't see deletes.</p>
+    <p><b>Decision.</b> A watermark pass every run, and a full key-and-fingerprint comparison
+      every third run that finds deletes and anything missed. The known state (key → fingerprint)
+      is stored with the watermark. Delete events are identified by the last version seen, so a
+      repeated comparison can't produce a second delete.</p>
+    <p><b>Costs.</b> Deletes arrive up to two runs late. Each comparison reads the whole table on
+      the mainframe (<span data-term="mips">MIPS</span>). Storing the known state with the
+      watermark suits tables up to about 100,000 rows; beyond that it moves to its own Delta
+      table. Reconciliation can only judge DB2's row count on comparison runs, so it reports SKIP
+      in between.</p>
+  </details>
+
   <h2>What comes next</h2>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Stage</th><th>Item</th><th>Why it matters</th></tr></thead>
       <tbody>
         <tr><td><span class="tag blue">done</span></td><td>SQL Server and file-share capture, Kafka, Delta layers, reconciliation, fraud rules, automated checks</td><td>The full loop, measured end to end</td></tr>
-        <tr><td><span class="tag">next</span></td><td>DB2 connector: timestamp bookmark plus periodic comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td>The mainframe case: capturing changes without access to the log</td></tr>
+        <tr><td><span class="tag blue">done</span></td><td>DB2 connector: timestamp bookmark plus periodic comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td>The mainframe case: capturing changes without access to the log</td></tr>
         <tr><td><span class="tag">next</span></td><td>SingleStore connector</td><td>The fourth source system</td></tr>
         <tr><td><span class="tag">next</span></td><td>Fraud-alert <span data-term="microservice">microservice</span> reading from Kafka</td><td>Shows another application using the same events</td></tr>
         <tr><td><span class="tag">next</span></td><td>Schema Registry; full history of account changes (<span data-term="scd2">SCD2</span>)</td><td>Safer format changes; "what did this account look like on date X?"</td></tr>

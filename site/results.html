@@ -24,8 +24,8 @@
   <section class="grid grid-4" id="tiles"></section>
 
   <h2 id="latency">How fast is an alert raised?</h2>
-  <p class="plain"><b>In one sentence:</b> about 20 seconds from a payment being saved in the bank's
-    database to a fraud alert being written, against next day today.</p>
+  <p class="plain"><b>In one sentence:</b> typically <span id="latency-p50">–</span> from a payment
+    being saved in the bank's database to a fraud alert being written, against next day today.</p>
   <p class="muted">Each dot is one alert. Its value is the time between the source database saving
     the last payment behind the alert and the alert being written
     (<span data-term="latency">latency</span>). Here the pipeline ran straight after each batch of
@@ -70,7 +70,8 @@
   <p class="muted"><span data-term="reconciliation">Reconciliation</span> checks from the last round.
     Row counts and balance totals are compared between the source and the Silver copy, and every
     event Kafka confirmed is checked against Bronze. The job fails on any mismatch, so a finished
-    run means these held after every round.</p>
+    run means these held after every round. A SKIP means DB2's row count wasn't judged that round:
+    its deletes only show up on comparison runs (<a href="cdc.html#db2">why</a>).</p>
   <div class="table-wrap"><table id="recon-table"></table></div>
 
   <h2 id="tables">Rows in each table</h2>

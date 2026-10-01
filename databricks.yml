@@ -36,8 +36,8 @@ resources:
       tasks:
         - task_key: capture
           for_each_task:
-            inputs: '["sqlserver_cards", "partner_fileshare"]'
-            concurrency: 2
+            inputs: '["sqlserver_cards", "partner_fileshare", "db2_core"]'
+            concurrency: 3
             task:
               task_key: capture_source
               environment_key: default

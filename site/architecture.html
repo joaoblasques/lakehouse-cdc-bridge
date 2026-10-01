@@ -44,7 +44,7 @@
       to the Silver table with a <span data-term="merge">MERGE</span>. An older change can never
       overwrite a newer one (<span data-term="ordering-guard">ordering guard</span>).</li>
     <li><b>The fraud rules run.</b> If this is the fifth payment on the account in ten minutes, the
-      <span data-term="velocity">velocity rule</span> writes an alert to Gold, about 20 seconds
+      <span data-term="velocity">velocity rule</span> writes an alert to Gold, well under a minute
       after the payment was saved.</li>
     <li><b>Everything is checked.</b> <span data-term="reconciliation">Reconciliation</span>
       compares counts and balance totals with the source. If anything is missing, the job fails
@@ -68,12 +68,12 @@
       <rect class="box" x="20" y="118" width="190" height="62" rx="8"/>
       <text x="34" y="144" font-size="14" font-weight="600">Azure File Share</text>
       <text x="34" y="164" class="sub">partner SEPA CSV files</text>
-      <rect class="box edge-dash" x="20" y="194" width="190" height="52" rx="8" stroke-dasharray="4 3"/>
+      <rect class="box" x="20" y="194" width="190" height="52" rx="8"/>
       <text x="34" y="216" font-size="13" font-weight="600">DB2 · mainframe</text>
-      <text x="34" y="234" class="sub">phase 2</text>
+      <text x="34" y="234" class="sub">timestamp + snapshot diff</text>
       <rect class="box" x="20" y="258" width="190" height="52" rx="8" stroke-dasharray="4 3"/>
       <text x="34" y="280" font-size="13" font-weight="600">SingleStore · payments</text>
-      <text x="34" y="298" class="sub">phase 2</text>
+      <text x="34" y="298" class="sub">next</text>
 
       <!-- capture -->
       <text x="270" y="28" font-size="12" font-weight="700" class="sub">DATABRICKS WORKFLOWS</text>
@@ -131,7 +131,7 @@
       <!-- edges -->
       <path class="edge" d="M210 73 H270"/>
       <path class="edge" d="M210 149 H270"/>
-      <path class="edge edge-dash" d="M210 220 H240 V200 H270"/>
+      <path class="edge" d="M210 220 H240 V200 H270"/>
       <path class="edge edge-dash" d="M210 284 H250 V220 H270"/>
       <path class="edge" d="M470 142 H530"/>
       <path class="edge" d="M370 242 V302"/>
@@ -149,7 +149,7 @@
     <code>databricks.yml</code> (an <span data-term="bundle">Asset Bundle</span>). It runs every
     five minutes, and never twice at the same time, because each source's bookmark must have
     a single writer.</p>
-<pre><code>capture  (runs once per source: SQL Server, file share)
+<pre><code>capture  (runs once per source: SQL Server, file share, DB2)
    └─ bronze ─ silver ─┬─ gold        (fraud alerts)
                        └─ reconcile   (fails the run if anything is missing)</code></pre>
   <p class="muted small">The capture step is a <span data-term="for-each">for-each task</span>:

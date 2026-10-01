@@ -74,6 +74,28 @@ def build_adapter(name: str, cfg: dict[str, Any], secret: Secret = env_secret) -
             share = AzureFileShare(secret(key, "connection_string"), src["share"], src["directory"])
         return FileShareAdapter(share, share_name=src["share"])
 
+    if src["type"] == "db2":
+        import ibm_db_dbi
+
+        from banking_cdc.sources.db2 import Db2QueryCdcAdapter, Db2Table
+
+        def connect_db2():
+            return ibm_db_dbi.connect(
+                f"DATABASE={src['database']};HOSTNAME={secret(key, 'host')};"
+                f"PORT={secret(key, 'port')};PROTOCOL=TCPIP;"
+                f"UID={secret(key, 'user')};PWD={secret(key, 'password')};",
+                "",
+                "",
+            )
+
+        specs = [
+            Db2Table(t["schema"], t["table"], t["primary_key"], t["ts_column"])
+            for t in src["tables"]
+        ]
+        return Db2QueryCdcAdapter(
+            connect_db2, src["database"], specs, snapshot_every=src.get("snapshot_every", 3)
+        )
+
     raise ValueError(f"no adapter for source type {src['type']!r}")
 
 

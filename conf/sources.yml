@@ -48,3 +48,19 @@ sources:
         silver_schema: >-
           transfer_id STRING, value_date DATE, booking_ts TIMESTAMP, debtor_iban STRING,
           creditor_iban STRING, amount DECIMAL(18,2), currency STRING, reference STRING
+
+  db2_core:
+    type: db2
+    database: COREBANK
+    connection_secret: db2-core
+    snapshot_every: 3          # full key + fingerprint comparison every 3rd run (finds deletes)
+    tables:
+      - schema: CORE
+        table: LOANS
+        primary_key: [LOAN_ID]
+        ts_column: ROW_CHANGED   # ROW CHANGE TIMESTAMP, set by DB2 on insert and update
+        topic: banking.cdc.core.loans
+        silver_table: silver_loans
+        silver_schema: >-
+          LOAN_ID INT, CUSTOMER_ID INT, PRODUCT STRING, PRINCIPAL DECIMAL(18,2),
+          OUTSTANDING DECIMAL(18,2), RATE_PCT DECIMAL(5,3), STATUS STRING, OPENED_ON DATE

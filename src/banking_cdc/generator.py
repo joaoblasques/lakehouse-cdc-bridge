@@ -60,6 +60,7 @@ def _pt_iban(nib19: str) -> str:
 class Batch:
     sql_ops: list[tuple[str, str, dict]] = field(default_factory=list)  # (table, op, row)
     files: list[tuple[str, str]] = field(default_factory=list)  # (file name, csv text)
+    db2_ops: list[tuple[str, str, dict]] = field(default_factory=list)  # core banking (DB2)
     ground_truth: list[dict] = field(default_factory=list)
 
 
@@ -87,6 +88,11 @@ class BankSimulator:
         self.trips: dict[int, tuple[str, int]] = {}  # account_id -> (country, hours left)
         self._next_tx = 1
         self._next_transfer = 1
+        # Loans draw from their own generator so adding them left the card and transfer data
+        # (and every result measured on it) unchanged.
+        self.loan_rng = random.Random(seed + 7)
+        self.loans: dict[int, dict] = {}
+        self._next_loan = 1
 
     # -- entities ---------------------------------------------------------------------------
 
@@ -124,6 +130,9 @@ class BankSimulator:
                 self.balances[account_id] = balance
                 batch.sql_ops.append(("accounts", "insert", dict(account)))
                 account_id += 1
+        for customer_id in range(1, self.n_customers + 1):
+            if self.loan_rng.random() < 0.4:
+                self._new_loan(batch, customer_id, "ACTIVE")
         return batch
 
     # -- rounds -----------------------------------------------------------------------------
@@ -143,6 +152,7 @@ class BankSimulator:
             self._inject_travel(batch, window_start)
         self._update_customer_emails(batch)
         self._partner_file(batch, window_start)
+        self._loan_activity(batch)
         self.clock = window_start + timedelta(hours=1)
         return batch
 
@@ -242,6 +252,65 @@ class BankSimulator:
                     },
                 )
             )
+
+    # -- loans (core banking on DB2) -----------------------------------------------------------
+
+    def _new_loan(self, batch: Batch, customer_id: int, status: str) -> None:
+        r = self.loan_rng
+        product = r.choice(["MORTGAGE", "PERSONAL", "PERSONAL", "CAR"])
+        low, high = {
+            "MORTGAGE": (60_000, 400_000),
+            "PERSONAL": (1_000, 30_000),
+            "CAR": (8_000, 45_000),
+        }[product]
+        principal = Decimal(r.randint(low, high) * 100) / 100
+        active = status == "ACTIVE"
+        row = {
+            "LOAN_ID": self._next_loan,
+            "CUSTOMER_ID": customer_id,
+            "PRODUCT": product,
+            "PRINCIPAL": principal,
+            "OUTSTANDING": (principal * Decimal(r.randint(30, 100)) / 100).quantize(Decimal("0.01"))
+            if active
+            else Decimal("0.00"),
+            "RATE_PCT": Decimal(r.randint(2_500, 11_000)) / 1000,
+            "STATUS": status,
+            "OPENED_ON": (self.clock - timedelta(days=r.randint(30, 3000))).date()
+            if active
+            else self.clock.date(),
+        }
+        self.loans[row["LOAN_ID"]] = row
+        self._next_loan += 1
+        batch.db2_ops.append(("loans", "insert", dict(row)))
+
+    def _loan_activity(self, batch: Batch) -> None:
+        """Repayments, new applications, approvals, and cancelled applications.
+
+        A cancelled application is hard-deleted by the core system: the change a
+        timestamp watermark can't see, and the reason the DB2 adapter runs a snapshot pass.
+        """
+        r = self.loan_rng
+        active = [ln for ln in self.loans.values() if ln["STATUS"] == "ACTIVE"]
+        for loan in r.sample(active, min(10, len(active))):
+            payment = (loan["PRINCIPAL"] * Decimal("0.02")).quantize(Decimal("0.01"))
+            loan["OUTSTANDING"] = max(Decimal("0.00"), loan["OUTSTANDING"] - payment)
+            if loan["OUTSTANDING"] == 0:
+                loan["STATUS"] = "CLOSED"
+            batch.db2_ops.append(
+                ("loans", "update", {k: loan[k] for k in ("LOAN_ID", "OUTSTANDING", "STATUS")})
+            )
+        for loan in [ln for ln in self.loans.values() if ln["STATUS"] == "APPLIED"]:
+            roll = r.random()
+            if roll < 0.6:
+                loan["STATUS"], loan["OUTSTANDING"] = "ACTIVE", loan["PRINCIPAL"]
+                batch.db2_ops.append(
+                    ("loans", "update", {k: loan[k] for k in ("LOAN_ID", "OUTSTANDING", "STATUS")})
+                )
+            elif roll < 0.85:
+                batch.db2_ops.append(("loans", "delete", {"LOAN_ID": loan["LOAN_ID"]}))
+                del self.loans[loan["LOAN_ID"]]
+        for _ in range(4):
+            self._new_loan(batch, r.randint(1, self.n_customers), "APPLIED")
 
     # -- planted fraud ----------------------------------------------------------------------
 

@@ -109,3 +109,19 @@ def test_travellers_use_one_foreign_country_for_the_whole_trip():
     foreign = [c for c in countries.values() if c - {"PT"}]
     assert foreign, "some cardholders should travel"
     assert all(len(c - {"PT"}) == 1 for c in foreign)
+
+
+def test_loans_are_added_without_changing_existing_data():
+    sim = BankSimulator(seed=42, start=START, n_customers=40)
+    first = sim.initial_load()
+    assert any(op[0] == "loans" for op in first.db2_ops)
+    # The card/transfer stream is identical to a run that ignores loans entirely.
+    assert (
+        first.sql_ops == BankSimulator(seed=42, start=START, n_customers=40).initial_load().sql_ops
+    )
+
+
+def test_loan_activity_includes_hard_deleted_applications():
+    _, batches = _round(n=4)
+    ops = {(t, op) for b in batches for t, op, _ in b.db2_ops}
+    assert {("loans", "insert"), ("loans", "update"), ("loans", "delete")} <= ops

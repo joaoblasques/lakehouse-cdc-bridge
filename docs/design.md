@@ -27,7 +27,7 @@ use Debezium.
 ```
  SQL Server ──(cdc.fn_cdc_get_all_changes, LSN watermark)──┐
  Azure File Share ──(file manifest: etag + sha256)─────────┤  01_cdc_capture (for-each source)
- DB2 / SingleStore ──(phase 2: watermark + hash diff)──────┘        │
+ DB2 ──(row-change timestamp + snapshot diff)─────────────┘        │
                                                                     ▼
                                           Kafka (Confluent): banking.cdc.<domain>
                                                                     │
@@ -46,7 +46,7 @@ use Debezium.
 |---|---|---|
 | SQL Server | Log-based: native CDC change tables, LSN watermark | yes |
 | Azure File Share | File-arrival: SDK listing + Delta manifest (Auto Loader does not read Azure Files) | yes |
-| DB2 | Query-based: `ROW CHANGE TIMESTAMP` watermark + periodic snapshot hash diff for deletes | phase 2 |
+| DB2 | Query-based: `ROW CHANGE TIMESTAMP` watermark + periodic snapshot hash diff for deletes | yes (`CORE.LOANS`) |
 | SingleStore | Watermark + row hash (`OBSERVE` documented as the native option) | phase 2 |
 
 All adapters implement one interface, `SourceAdapter.capture(watermark) -> CaptureResult`, so a
@@ -97,6 +97,6 @@ package. Locally, `scripts/run_local.py` runs the same functions against Docker
 
 ## Out of scope for the MVP (phase 2/3)
 
-DB2 and SingleStore adapters (local Docker only, since neither has a usable free cloud tier for CDC),
+The SingleStore adapter (its free tier has no CDC),
 the FastAPI fraud-alert microservice, Schema Registry serialization, SCD2 history, the AI
 source-onboarding assistant, an MLflow fraud model.
