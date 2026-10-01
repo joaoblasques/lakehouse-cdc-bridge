@@ -203,6 +203,29 @@ const GLOSSARY = {
     short: "A small, independent application with one job, here a service that reads fraud events from Kafka and serves them through an API." },
   yaml: { term: "Config-driven (YAML)", group: "Infrastructure and engineering",
     short: "Behaviour set in a configuration file (conf/sources.yml) rather than in code, so adding a table means editing config, not writing code." },
+
+  // ---- AI and onboarding -------------------------------------------------------------------
+  llm: { term: "LLM (large language model)", group: "AI and onboarding",
+    short: "An AI model trained on large amounts of text that reads and writes language. Claude is one. Here it drafts the configuration for a new table.",
+    long: "An LLM is good at judgment calls, such as naming or spotting a column that holds a tax number. It can also be confidently wrong, so every fact it states is checked by code." },
+  ddl: { term: "DDL (data definition language)", group: "AI and onboarding",
+    short: "The SQL that defines a table: its name, its columns and their types, and its keys. A CREATE TABLE statement is DDL.",
+    long: "DDL describes the shape of a table and holds no customer data. That is why it is the only thing the onboarding assistant sends to the model." },
+  "primary-key": { term: "Primary key", group: "AI and onboarding",
+    short: "The column, or set of columns, whose value is different for every row of a table, such as a deposit ID.",
+    long: "CDC needs it to know which row a change belongs to. A table without a declared primary key can't be captured safely, and the assistant may not invent one." },
+  pii: { term: "PII (personally identifiable information)", group: "AI and onboarding",
+    short: "Data that identifies a person: a name, a tax number (NIF), an IBAN, an email address or a phone number.",
+    long: "Banks must protect it by law (GDPR). For each such column the assistant proposes a handling for the Silver layer: mask it, hash it (still usable for joins), drop it, or keep it with restricted access." },
+  "structured-output": { term: "Structured output", group: "AI and onboarding",
+    short: "Making the model reply in a fixed JSON format, with named fields and allowed values, instead of free text.",
+    long: "The API enforces the format, so the code reads fields directly and never has to interpret a sentence. A missing or unknown field can't slip through." },
+  "prompt-injection": { term: "Prompt injection", group: "AI and onboarding",
+    short: "Text hidden in the input that tries to give the model new instructions, for example a column comment saying \"ignore your rules\".",
+    long: "The guard here has two parts. The prompt tells the model to treat the DDL as data to analyse. And the model's answer can't change anything by itself: code checks it and a person approves it." },
+  "human-in-the-loop": { term: "Human in the loop", group: "AI and onboarding",
+    short: "A person reviews and approves what an AI produced before it takes effect.",
+    long: "Here the approval is a normal pull request: an engineer copies the proposed entry into conf/sources.yml, and the change only goes live when that pull request is merged." },
 };
 
 // ---- Popovers ----------------------------------------------------------------------------

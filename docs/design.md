@@ -95,8 +95,29 @@ A Databricks Asset Bundle (`databricks.yml`) defines one Workflows job:
 package. Locally, `scripts/run_local.py` runs the same functions against Docker
 (SQL Server + Confluent Kafka) and local Spark + Delta.
 
+## AI source onboarding
+
+`banking_cdc.onboarding` turns a `CREATE TABLE` into a proposed `sources.yml` entry. The work
+is split three ways:
+
+- **Claude gives judgment.** One call with structured output (a JSON schema) returns the key,
+  the DB2 watermark column, topic and Silver names, personal-data columns with a handling
+  (mask, hash, drop, keep_restricted), and review notes. Only the DDL is sent, never rows. The
+  DDL is framed as data, as a guard against prompt injection. A refusal or a `max_tokens`
+  cut-off raises an error instead of being parsed.
+- **Code holds the facts.** `ddl.py` parses the DDL (DB2 and SQL Server dialects). `review.py`
+  checks that the key columns exist and match the declared key, that the DB2 watermark is a
+  TIMESTAMP, that topic and Silver names follow the conventions and are new, that personal-data
+  columns exist, and that every type maps to Spark. The Silver schema is built from the DDL,
+  never from the model.
+- **A person approves.** The proposal goes to `conf/proposals/<source>__<table>.yml` with the
+  checker's findings, the model's notes and provenance (model, message id, DDL sha256). An
+  engineer copies the entry into `conf/sources.yml` through a pull request.
+
+Tests replace the model with a fake client, so they cover what the code does with any answer,
+not the quality of the answers. See ADR-010 on the website.
+
 ## Out of scope for the MVP (phase 2/3)
 
 The SingleStore adapter (its free tier has no CDC),
-the FastAPI fraud-alert microservice, Schema Registry serialization, SCD2 history, the AI
-source-onboarding assistant, an MLflow fraud model.
+Schema Registry serialization, SCD2 history, an MLflow fraud model.

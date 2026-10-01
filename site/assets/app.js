@@ -7,6 +7,7 @@ const PAGES = [
   ["results.html", "Results", "results"],
   ["lineage.html", "Traceability", "lineage"],
   ["decisions.html", "Decisions", "decisions"],
+  ["onboarding.html", "AI onboarding", "onboarding"],
   ["setup.html", "Setup", "setup"],
   ["run.html", "Deploy", "run"],
   ["glossary.html", "Glossary", "glossary"],

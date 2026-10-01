@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI onboarding · Lakehouse CDC Bridge</title>
+  <meta name="description" content="An AI assistant drafts the configuration for a new source table. Code checks every claim against the table definition, and a person approves it.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="onboarding">
+<main>
+  <section class="hero">
+    <div class="eyebrow">AI onboarding</div>
+    <h1>An AI assistant drafts the config for a new table, and a person approves it</h1>
+    <p class="lead">Adding a table to the pipeline used to mean writing its configuration by
+      hand. Now a language model (<span data-term="llm">LLM</span>) writes a first draft from the
+      table definition. Code checks that draft against the facts, and an engineer approves it.</p>
+  </section>
+
+  <h2>The problem</h2>
+  <p>Each new source table needs an entry in <span data-term="yaml">conf/sources.yml</span>. To
+    write it, someone reads the table definition (<span data-term="ddl">DDL</span>) and works
+    out:</p>
+  <ul>
+    <li>the <span data-term="primary-key">primary key</span>, and for DB2 the
+      <span data-term="row-change-ts">timestamp column</span> to poll;</li>
+    <li>a Kafka <span data-term="topic">topic</span> name and a Silver table name that follow
+      the existing pattern;</li>
+    <li>the Silver schema, one Spark type for each column;</li>
+    <li>which columns hold personal data (<span data-term="pii">PII</span>), such as names, tax
+      numbers and <span data-term="iban">IBANs</span>, and how to protect them.</li>
+  </ul>
+  <p>Done by hand, this is slow, and small mistakes are easy to make. A key column with a typo,
+    or a missed tax number column, only shows up later, in production.</p>
+
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li><b>Give it the DDL.</b> One <code>CREATE TABLE</code> statement from DB2 or SQL Server,
+      and the name of the source it belongs to.</li>
+    <li><b>Claude drafts the judgment parts.</b> The key, the topic name, the Silver table name,
+      which columns are personal data and how to handle each one, plus review notes such as
+      "this rate is stored as a floating-point number".</li>
+    <li><b>Code checks every claim.</b> Does each key column exist? Does it match the key the
+      DDL declares? Is the DB2 watermark really a TIMESTAMP? Are the names new, and do they
+      follow the pattern? Does every column marked as personal data exist? Can every type be
+      mapped to Spark?</li>
+    <li><b>A proposal file is written.</b> It goes to <code>conf/proposals/</code> and holds the
+      entry, the checker's findings, the model's notes, and where the draft came from.</li>
+    <li><b>A person approves it.</b> An engineer reads the proposal, copies the entry into
+      <code>conf/sources.yml</code> and opens a pull request. That pull request is the
+      approval.</li>
+  </ol>
+
+  <h2>Who decides what</h2>
+  <div class="grid grid-3">
+    <div class="card"><h3>The model: judgment</h3><p class="muted">Naming, spotting personal
+      data, and the risks a careful reviewer would flag. These are the parts a person would
+      otherwise think through.</p></div>
+    <div class="card"><h3>The code: facts</h3><p class="muted">Columns, types and keys come from
+      parsing the DDL. The Silver schema is built from the DDL, never taken from the model. Every
+      column name in the model's answer is checked against the real list.</p></div>
+    <div class="card accent"><h3>A person: approval</h3><p class="muted">Nothing reaches
+      <code>conf/sources.yml</code> until an engineer has read it and merged a pull request
+      (<span data-term="human-in-the-loop">human in the loop</span>).</p></div>
+  </div>
+
+  <h2>Safety choices</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Choice</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Only the table definition is sent, never rows</td><td>No customer data leaves the bank. The model sees column names and types, nothing more.</td></tr>
+        <tr><td>The DDL is treated as data</td><td>A column comment could contain text like "ignore your instructions". The prompt marks the DDL as material to analyse, not orders to follow, as a guard against <span data-term="prompt-injection">prompt injection</span>.</td></tr>
+        <tr><td>Answers must fit a fixed format</td><td>The model must reply in a set JSON shape (<span data-term="structured-output">structured output</span>), so the code never has to guess what a sentence meant.</td></tr>
+        <tr><td>A refusal or a cut-off answer is an error</td><td>If the model declines, or its answer stops part-way, the tool stops with a clear error. It never tries to use half an answer.</td></tr>
+        <tr><td>Server-side fallback</td><td>If the main model is busy, the API can answer with another model instead of failing. The proposal records which model actually answered.</td></tr>
+        <tr><td>Provenance in the file</td><td>Each proposal records the model, the message ID and a <span data-term="hash">SHA-256 fingerprint</span> of the DDL. A reviewer can see which definition the draft was made from.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Example: DB2 term deposits</h2>
+  <div class="callout caution"><span class="tag bad">NOT A REAL RUN</span>
+    This example shows the format of a proposal. It has <b>not</b> been produced by the live
+    model yet, because no API key was available when this was built. The model's part (summary,
+    personal data, notes) was written by hand, as in the automated tests. The rest was produced
+    by the real code from the DDL below.</div>
+  <p>Input: <code>tests/fixtures/ddl/db2_deposits.sql</code>, a trimmed DB2 table of term
+    deposits with a holder name, a tax number (NIF), an IBAN and a rate stored as
+    <code>DOUBLE</code>.</p>
+<pre><code>CREATE TABLE "CORE"."DEPOSITS" (
+  "DEPOSIT_ID"    INTEGER NOT NULL,
+  "HOLDER_NAME"   VARCHAR(120),
+  "HOLDER_NIF"    CHAR(9),
+  "IBAN"          VARCHAR(34) NOT NULL,
+  "PRINCIPAL"     DECIMAL(18, 2) NOT NULL,
+  "BONUS_RATE"    DOUBLE,
+  ...
+  "ROW_CHANGED"   TIMESTAMP NOT NULL GENERATED ALWAYS FOR EACH ROW ON UPDATE
+                  AS ROW CHANGE TIMESTAMP IMPLICITLY HIDDEN,
+  CONSTRAINT "PK_DEPOSITS" PRIMARY KEY ("DEPOSIT_ID")
+);</code></pre>
+  <p>Output: <code>conf/proposals/db2_core__CORE.DEPOSITS.yml</code></p>
+<pre><code>status: ready_for_review
+source: db2_core
+entry:                              # goes into conf/sources.yml after review
+  schema: CORE
+  table: DEPOSITS
+  primary_key: [DEPOSIT_ID]         # checked against the declared key
+  ts_column: ROW_CHANGED            # checked: a TIMESTAMP that DB2 maintains
+  topic: banking.cdc.core.deposits
+  silver_table: silver_deposits
+  silver_schema: DEPOSIT_ID INT, CUSTOMER_ID INT, HOLDER_NAME STRING,
+    HOLDER_NIF STRING, IBAN STRING, PRINCIPAL DECIMAL(18,2), RATE_PCT DECIMAL(5,3),
+    BONUS_RATE DOUBLE, OPENED_ON DATE, MATURES_ON DATE, STATUS STRING   # from the DDL
+review:
+  summary: Term deposits held by customers.
+  validator: []                     # no errors found by the code
+  model_notes:
+  - severity: warning
+    note: BONUS_RATE is DOUBLE; rates should be DECIMAL.
+  pii_columns:
+  - {column: HOLDER_NAME, category: name, handling: mask}
+  - {column: HOLDER_NIF, category: tax_id, handling: hash}
+  - {column: IBAN, category: account_number, handling: keep_restricted}
+provenance:
+  model: claude-opus-5-5
+  message_id: msg_...
+  generated_at: '2026-10-01T17:46:01+00:00'
+  ddl_sha256: 7d195ab1...e687e27</code></pre>
+  <p>If the checker finds an error, or the model marks something as a blocker, the status is
+    <code>needs_changes</code> and the command exits with code 1. The file is still written, so
+    the reviewer can see why.</p>
+
+  <h2>How to run it</h2>
+  <ol class="steps">
+    <li><b>Install the optional AI package.</b>
+<pre><code>uv sync --extra ai</code></pre></li>
+    <li><b>Set your API key</b> in the shell. Do not put it in a file in the repository.
+<pre><code>export ANTHROPIC_API_KEY=...</code></pre></li>
+    <li><b>See the prompt first</b>, without calling the model:
+<pre><code>uv run python -m banking_cdc.onboarding \
+  --ddl tests/fixtures/ddl/db2_deposits.sql --source db2_core --dry-run</code></pre></li>
+    <li><b>Draft the entry.</b>
+<pre><code>uv run python -m banking_cdc.onboarding \
+  --ddl tests/fixtures/ddl/db2_deposits.sql --source db2_core</code></pre>
+      Result: the command prints the status and the path of the proposal file.</li>
+  </ol>
+
+  <div class="notice">The automated tests replace the model with a fake. They prove what the
+    code does with any answer it gets: they check the parsing, the checker and the file format.
+    They do not judge how good the model's answers are. That is the reviewer's job, and the
+    reason a person approves every entry. See
+    <a href="decisions.html">ADR-010</a> for the reasoning.</div>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
+</body>
+</html>
