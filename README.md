@@ -51,6 +51,9 @@ Details: [docs/design.md](docs/design.md).
 
 ## Run it locally
 
+Full step-by-step procedure, with requirements and troubleshooting: the
+[Setup guide](https://joaoblasques.github.io/lakehouse-cdc-bridge/setup.html). The short version:
+
 Needs Docker, Java 17+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
@@ -72,7 +75,7 @@ databricks bundle run banking_cdc
 ```
 
 Secrets (SQL Server, file share, Confluent API key) come from a Databricks secret scope; the
-key names are listed on the [Run it](site/run.html) page.
+key names are listed on the [Deploy](https://joaoblasques.github.io/lakehouse-cdc-bridge/run.html) page.
 
 ## Repository
 

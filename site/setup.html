@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Setup Guide · Lakehouse CDC Bridge</title>
+  <meta name="description" content="Step-by-step procedure to install the project on your computer, run the tests and run the full pipeline, written to ASD-STE100 Simplified Technical English principles.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%277%27 fill=%27%230b5cad%27/%3E%3Cpath d=%27M8 11h16M8 16h11M8 21h16%27 stroke=%27white%27 stroke-width=%273%27 stroke-linecap=%27round%27/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="setup">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Setup guide</div>
+    <h1>Install and run the project on your computer</h1>
+    <p class="lead">This guide gives the procedure to install the project, run the tests and run
+      the full pipeline on one computer. You do not need a cloud account.</p>
+  </section>
+
+  <div class="card accent">
+    <h3>About this guide</h3>
+    <p class="small">This guide uses the principles of ASD-STE100 Simplified Technical English:
+      short sentences, one instruction in each step, and the active voice. Read each step fully
+      before you do it.</p>
+    <dl class="kv small" style="margin-top:8px">
+      <dt><span class="tag bad">CAUTION</span></dt><dd style="font-family:var(--sans)">Tells you about a risk to your data or to other software on your computer.</dd>
+      <dt><span class="tag blue">NOTE</span></dt><dd style="font-family:var(--sans)">Gives you more information about a step.</dd>
+      <dt><b>Result</b></dt><dd style="font-family:var(--sans)">Tells you what you see when the step is correct.</dd>
+    </dl>
+  </div>
+
+  <nav class="toc" aria-label="Procedures">
+    <a href="#s1">1 · Requirements</a>
+    <a href="#s2">2 · Install the tools</a>
+    <a href="#s3">3 · Copy the code</a>
+    <a href="#s4">4 · Install the packages</a>
+    <a href="#s5">5 · Start the services</a>
+    <a href="#s6">6 · Run the tests</a>
+    <a href="#s7">7 · Start DB2 (optional)</a>
+    <a href="#s8">8 · Run the pipeline</a>
+    <a href="#s9">9 · See the results</a>
+    <a href="#s10">10 · Stop and remove</a>
+    <a href="#s11">11 · Troubleshooting</a>
+  </nav>
+
+  <h2 id="s1">1 · Make sure that your computer agrees with the requirements</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Item</th><th>Minimum</th><th>With DB2 (optional)</th></tr></thead>
+      <tbody>
+        <tr><td>Operating system</td><td>Linux, macOS, or Windows with WSL 2</td><td>Linux, or Windows with WSL 2</td></tr>
+        <tr><td>Processor type</td><td>x86-64 (Intel or AMD). See the caution below for Apple silicon.</td><td>x86-64</td></tr>
+        <tr><td>Free memory for Docker</td><td>8 GB</td><td>12 GB</td></tr>
+        <tr><td>Free disk space</td><td>6 GB</td><td>11 GB</td></tr>
+        <tr><td>Free network ports</td><td>1433, 9092, 8000</td><td>also 50000</td></tr>
+        <tr><td>Internet connection</td><td colspan="2">Necessary for the first installation only</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="callout caution"><span class="tag bad">CAUTION</span> The SQL Server, Kafka and DB2
+    container images are for x86-64 processors only. On a Mac with Apple silicon, Docker must
+    emulate x86-64. SQL Server and Kafka can operate with emulation, but they are slower. DB2 can
+    fail to start with emulation.</p>
+
+  <h2 id="s2">2 · Install the tools</h2>
+  <p>Install these four tools. If a tool is already on your computer, make sure that its version
+    is correct.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tool</th><th>Version</th><th>Purpose</th><th>Command to examine the version</th></tr></thead>
+      <tbody>
+        <tr><td><a href="https://git-scm.com/downloads">Git</a></td><td>any</td><td>Copies the code</td><td><code>git --version</code></td></tr>
+        <tr><td><a href="https://docs.docker.com/get-docker/">Docker</a> with Compose v2</td><td>Compose v2</td><td>Runs SQL Server, Kafka and DB2 (<span data-term="docker">containers</span>)</td><td><code>docker compose version</code></td></tr>
+        <tr><td>Java (for example <a href="https://adoptium.net/">Eclipse Temurin</a>)</td><td>17 or 21</td><td>Runs <span data-term="spark">Spark</span></td><td><code>java -version</code></td></tr>
+        <tr><td><a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a></td><td>0.5 or later</td><td>Installs Python and the Python packages</td><td><code>uv --version</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="callout note"><span class="tag blue">NOTE</span> You do not have to install Python. uv
+    installs the correct Python version (3.11 or later) when it is necessary.</p>
+  <ol class="steps">
+    <li>Start Docker.</li>
+    <li>Make sure that Docker operates:
+<pre><code>docker run --rm hello-world</code></pre>
+      <b>Result:</b> The text "Hello from Docker!" shows.</li>
+  </ol>
+
+  <h2 id="s3">3 · Copy the code to your computer</h2>
+  <ol class="steps">
+    <li>Open a terminal.</li>
+    <li>Go to the folder where you keep your projects.</li>
+    <li>Copy the repository:
+<pre><code>git clone https://github.com/joaoblasques/lakehouse-cdc-bridge.git</code></pre></li>
+    <li>Go to the project folder:
+<pre><code>cd lakehouse-cdc-bridge</code></pre>
+      <b>Result:</b> The folder contains the files <code>README.md</code>,
+      <code>docker-compose.yml</code> and <code>pyproject.toml</code>.</li>
+  </ol>
+  <p class="callout note"><span class="tag blue">NOTE</span> Do all the subsequent commands in this
+    project folder.</p>
+
+  <h2 id="s4">4 · Install the Python packages</h2>
+  <ol class="steps">
+    <li>Install the packages:
+<pre><code>uv sync --all-extras</code></pre>
+      <b>Result:</b> uv shows "Installed" and the number of packages. A <code>.venv</code> folder
+      shows in the project folder.</li>
+  </ol>
+  <p class="callout note"><span class="tag blue">NOTE</span> The first installation can take some
+    minutes. uv puts all packages in <code>.venv</code>. It does not change the other Python
+    installations on your computer.</p>
+
+  <h2 id="s5">5 · Start the services</h2>
+  <p>This procedure starts two services in Docker: <span data-term="sql-server">SQL Server</span>
+    (the bank's cards database) and <span data-term="kafka">Kafka</span> (the event stream).</p>
+  <p class="callout caution"><span class="tag bad">CAUTION</span> Make sure that no other program
+    uses port 1433 or 9092. If another SQL Server or Kafka uses these ports, stop it first.
+    If you do not stop it, the services in this project do not start.</p>
+  <ol class="steps">
+    <li>Start the services:
+<pre><code>docker compose up -d --wait</code></pre></li>
+    <li>Wait until the command stops. The first start downloads approximately 3.7 GB and can take
+      10 minutes.</li>
+    <li>Make sure that the two services operate:
+<pre><code>docker compose ps</code></pre>
+      <b>Result:</b> The list shows <code>sqlserver</code> with the status "healthy" and
+      <code>kafka</code> with the status "Up".</li>
+  </ol>
+
+  <h2 id="s6">6 · Run the tests</h2>
+  <ol class="steps">
+    <li>Run the main tests:
+<pre><code>uv run pytest</code></pre>
+      <b>Result:</b> The last line shows "passed" and no "failed". This takes approximately
+      2 minutes.</li>
+    <li>Run the test that uses the real SQL Server:
+<pre><code>uv run pytest -m integration</code></pre>
+      <b>Result:</b> The last line shows "1 passed".</li>
+  </ol>
+  <p class="callout note"><span class="tag blue">NOTE</span> The first Spark test downloads two
+    Java libraries (Delta Lake and the Kafka connector). This is necessary one time only.</p>
+
+  <h2 id="s7">7 · Start DB2 (optional)</h2>
+  <p>DB2 plays the bank's <span data-term="mainframe">mainframe</span>. The pipeline operates
+    without DB2. If you do not start DB2, the pipeline uses only SQL Server and the partner files,
+    and it tells you this.</p>
+  <p class="callout caution"><span class="tag bad">CAUTION</span> The DB2 image is 4.3 GB. DB2 also
+    operates in privileged mode, which gives the container full access to your computer. Start DB2
+    only on a computer that you use for development.</p>
+  <ol class="steps">
+    <li>Start DB2:
+<pre><code>docker compose --profile db2 up -d db2</code></pre></li>
+    <li>Wait until DB2 is ready. This can take 5 to 10 minutes. To see the progress, use this
+      command:
+<pre><code>docker compose logs -f db2</code></pre>
+      <b>Result:</b> The text "Setup has completed." shows.</li>
+    <li>Push <kbd>Ctrl</kbd> + <kbd>C</kbd> to stop the log display. DB2 continues to operate.</li>
+    <li>Run the test that uses the real DB2:
+<pre><code>uv run pytest -m db2</code></pre>
+      <b>Result:</b> The last line shows "1 passed".</li>
+  </ol>
+
+  <h2 id="s8">8 · Run the full pipeline</h2>
+  <p>The pipeline creates bank data, captures each change, sends the changes through Kafka,
+    keeps them in <span data-term="delta">Delta Lake</span> tables and finds fraud. It writes the
+    results to <code>site/data/run_metrics.json</code>.</p>
+  <p class="callout caution"><span class="tag bad">CAUTION</span> The <code>--fresh</code> option
+    deletes and starts again the SQL Server and Kafka containers. It also deletes the
+    <code>.local</code> folder and all rows in the DB2 loans table. Do not use it if you want to
+    keep data from an earlier run.</p>
+  <ol class="steps">
+    <li>Run the pipeline:
+<pre><code>uv run python scripts/run_local.py --fresh</code></pre></li>
+    <li>Wait until the command stops. This takes approximately 5 to 15 minutes. The time
+      changes with the speed of your computer.
+      <b>Result:</b> The terminal shows one line for each round, from "round 0" to "round 6".
+      At the end, it shows a summary of the alerts and the latency.</li>
+  </ol>
+  <p class="callout note"><span class="tag blue">NOTE</span> To change the size of the run, use these
+    options: <code>--rounds</code> (the number of simulated hours, default 6) and
+    <code>--customers</code> (default 150).</p>
+
+  <h2 id="s9">9 · See the results</h2>
+  <ol class="steps">
+    <li>Start a small web server for the website:
+<pre><code>python -m http.server -d site 8000</code></pre></li>
+    <li>Open <a href="http://localhost:8000">http://localhost:8000</a> in your web browser.
+      <b>Result:</b> The website shows the results of your run. The date on the Results page is
+      the date of your run.</li>
+    <li>Push <kbd>Ctrl</kbd> + <kbd>C</kbd> in the terminal to stop the web server.</li>
+  </ol>
+
+  <h2 id="s10">10 · Stop and remove the services</h2>
+  <ol class="steps">
+    <li>To stop the services and keep their data, use this command:
+<pre><code>docker compose --profile db2 stop</code></pre></li>
+    <li>To remove the services and their data, use this command:
+<pre><code>docker compose --profile db2 down -v</code></pre></li>
+    <li>To remove the local Delta tables, delete the <code>.local</code> folder:
+<pre><code>rm -rf .local</code></pre></li>
+  </ol>
+  <p class="callout note"><span class="tag blue">NOTE</span> The container images stay on your
+    computer. To remove them and recover the disk space, use <code>docker image rm</code> with the
+    image names in <code>docker-compose.yml</code>.</p>
+
+  <h2 id="s11">11 · Troubleshooting</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Problem</th><th>Possible cause</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><code>docker compose up</code> shows "port is already allocated"</td><td>Another program uses port 1433, 9092 or 50000</td><td>Stop the other program. Then do step 5 again.</td></tr>
+        <tr><td>The <code>sqlserver</code> service does not become "healthy"</td><td>Docker does not have sufficient memory</td><td>Give Docker a minimum of 8 GB of memory in its settings. Then do step 5 again.</td></tr>
+        <tr><td>Tests show "JAVA_GATEWAY_EXITED"</td><td>Java is not installed, or its version is not 17 or 21</td><td>Install Java 17 or 21. Make sure that <code>java -version</code> shows the correct version.</td></tr>
+        <tr><td>Tests stop at "Ivy" or "resolving dependencies"</td><td>Spark cannot download its Java libraries</td><td>Make sure that the internet connection operates. Then run the tests again.</td></tr>
+        <tr><td>The pipeline shows "DB2 not reachable"</td><td>DB2 is not started or is not ready</td><td>This is not an error: the pipeline continues without DB2. To use DB2, do step 7.</td></tr>
+        <tr><td>The pipeline shows "Failed to acquire idempotence PID" one time</td><td>Kafka is not fully ready yet</td><td>No action is necessary. The pipeline tries again automatically.</td></tr>
+        <tr><td>The pipeline stops with "ReconciliationError"</td><td>The data in Delta does not agree with the source data</td><td>Run the pipeline again with <code>--fresh</code>. If the error stays, send the full error text in a GitHub issue.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="small muted">To deploy the project to Databricks and Confluent Cloud, see
+    <a href="run.html">Deploy</a>.</p>
+</main>
+<script src="assets/app.js"></script>
+<script src="assets/glossary.js"></script>
+</body>
+</html>

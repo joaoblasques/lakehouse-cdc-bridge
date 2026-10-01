@@ -7,7 +7,8 @@ const PAGES = [
   ["results.html", "Results", "results"],
   ["lineage.html", "Traceability", "lineage"],
   ["decisions.html", "Decisions", "decisions"],
-  ["run.html", "Run it", "run"],
+  ["setup.html", "Setup", "setup"],
+  ["run.html", "Deploy", "run"],
   ["glossary.html", "Glossary", "glossary"],
 ];
 
@@ -41,8 +42,6 @@ function renderChrome() {
         ${PAGES.map(([href, label, key]) =>
           `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
       </div>
-      <a class="icon-btn gh-link" href="${REPO}" title="Source on GitHub"
-         style="display:grid;place-items:center;padding:0 10px">GitHub</a>
       <button class="icon-btn" id="theme-toggle" type="button" aria-label="Toggle dark mode"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1Zm0 1.5v11a5.5 5.5 0 0 1 0-11Z"/></svg></button>
     </nav>`;
   document.body.prepend(header);
