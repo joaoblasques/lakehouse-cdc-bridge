@@ -27,7 +27,8 @@ DDL = {
     "gold_fraud_alerts": """
         alert_id STRING, rule STRING, account_id INT, evidence_keys ARRAY<STRING>,
         first_evidence_ts TIMESTAMP, last_source_commit_ts TIMESTAMP,
-        alert_created_at TIMESTAMP, latency_seconds DOUBLE""",
+        alert_created_at TIMESTAMP, latency_seconds DOUBLE,
+        published_at TIMESTAMP""",  # outbox flag: NULL until Kafka confirmed the alert
 }
 SILVER_META = """_event_id STRING, _op STRING, _source_sequence STRING, _first_commit_ts TIMESTAMP,
     _last_commit_ts TIMESTAMP, _is_deleted BOOLEAN, _updated_at TIMESTAMP"""

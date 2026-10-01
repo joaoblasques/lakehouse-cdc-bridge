@@ -3,6 +3,7 @@
 # silver_schema is the typed shape of the row image; Silver parses events with it.
 kafka:
   dlq_topic: banking.cdc.dlq
+  alerts_topic: banking.fraud.alerts   # Gold publishes new alerts here (outbox pattern)
 
 sources:
   sqlserver_cards:

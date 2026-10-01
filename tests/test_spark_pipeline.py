@@ -317,3 +317,32 @@ def test_reconciliation_skips_row_count_until_the_snapshot_pass(spark, ns):
     wm(0)  # a snapshot just ran: the mismatch is real now
     with pytest.raises(ReconciliationError):
         run_reconciliation(spark, ns, cfg, stats)
+
+
+def test_outbox_publishes_each_alert_once(spark, ns):
+    from banking_cdc.pipeline.alerts import publish_pending_alerts
+
+    class Recorder:
+        def __init__(self):
+            self.sent = []
+
+        def produce(self, topic, key, value, headers=None, on_delivery=None):
+            self.sent.append(json.loads(value)["alert_id"])
+            on_delivery(None, None)
+
+        def poll(self, _):
+            return 0
+
+        def flush(self, _):
+            return 0
+
+    _apply(
+        spark, ns, [_tx(i, 1, i) for i in range(1, 6)], "card_transactions", "dbo.card_transactions"
+    )
+    run_gold(spark, ns)
+    p = Recorder()
+    assert publish_pending_alerts(spark, ns, p, "alerts") == 1
+    assert publish_pending_alerts(spark, ns, p, "alerts") == 0  # already marked published
+    run_gold(spark, ns)  # re-running Gold must not reset the outbox flag
+    assert publish_pending_alerts(spark, ns, p, "alerts") == 0
+    assert len(p.sent) == 1

@@ -18,10 +18,12 @@ services:
       CLUSTER_ID: "bWNkY2RjX2JhbmtpbmdfMQ"
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      # PLAINTEXT for the host (pipeline, tests); DOCKER for containers on this network.
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,DOCKER://0.0.0.0:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,DOCKER://kafka:29092
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,DOCKER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
@@ -44,3 +46,17 @@ services:
       ARCHIVE_LOGS: "false"
       AUTOCONFIG: "false"
     ports: ["50000:50000"]
+
+  # Fraud-alert service (FastAPI). Starts with: docker compose --profile api up -d --build
+  alerts-api:
+    build: .
+    profiles: [api]
+    depends_on: [kafka]
+    environment:
+      KAFKA_BOOTSTRAP: kafka:29092
+      ALERTS_DB: /data/alerts.db
+    ports: ["8080:8080"]
+    volumes: [alerts-data:/data]
+
+volumes:
+  alerts-data:

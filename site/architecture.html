@@ -46,6 +46,10 @@
     <li><b>The fraud rules run.</b> If this is the fifth payment on the account in ten minutes, the
       <span data-term="velocity">velocity rule</span> writes an alert to Gold, well under a minute
       after the payment was saved.</li>
+    <li><b>The alert reaches an analyst.</b> Gold publishes new alerts to Kafka
+      (<span data-term="outbox">outbox pattern</span>). The fraud-alert
+      <span data-term="microservice">service</span> reads them and puts each one in the
+      analysts' queue, where someone confirms the fraud or dismisses the alert.</li>
     <li><b>Everything is checked.</b> <span data-term="reconciliation">Reconciliation</span>
       compares counts and balance totals with the source. If anything is missing, the job fails
       loudly.</li>
@@ -100,9 +104,14 @@
       <text x="546" y="234" class="sub">idempotent producer, acks=all</text>
 
       <!-- consumers -->
-      <rect class="box" x="790" y="42" width="190" height="62" rx="8" stroke-dasharray="4 3"/>
-      <text x="806" y="68" font-size="13" font-weight="600">Other consumers</text>
-      <text x="806" y="88" class="sub">microservices, phase 2</text>
+      <rect class="box-accent" x="790" y="42" width="190" height="200" rx="10"/>
+      <text x="806" y="68" font-size="13" font-weight="700">Fraud-alert service</text>
+      <text x="806" y="86" class="sub">FastAPI · SQLite · Docker</text>
+      <text x="806" y="116" font-size="12">reads banking.fraud.alerts</text>
+      <text x="806" y="138" font-size="12">stores by alert_id</text>
+      <text x="806" y="160" font-size="12">commits after storing</text>
+      <text x="806" y="190" class="sub">analysts: list, confirm,</text>
+      <text x="806" y="206" class="sub">dismiss (REST API)</text>
 
       <!-- medallion -->
       <text x="530" y="290" font-size="12" font-weight="700" class="sub">DELTA LAKE</text>
@@ -135,7 +144,9 @@
       <path class="edge edge-dash" d="M210 284 H250 V220 H270"/>
       <path class="edge" d="M470 142 H530"/>
       <path class="edge" d="M370 242 V302"/>
-      <path class="edge edge-dash" d="M730 73 H790"/>
+      <path class="edge" d="M730 142 H790"/>
+      <path class="edge edge-dash" d="M915 302 V272 H700 V242"/>
+      <text x="748" y="266" class="sub">new alerts (outbox)</text>
       <path class="edge" d="M600 242 V302"/>
       <path class="edge" d="M670 333 H690"/>
       <path class="edge" d="M830 333 H850"/>
@@ -199,6 +210,42 @@
     </div>
   </div>
 
+  <h2 id="service">The fraud-alert service</h2>
+  <p class="plain"><b>In one sentence:</b> a small web service that receives every new alert from
+    Kafka and gives fraud analysts a queue to work through.</p>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>How alerts get there</h3>
+      <ul class="small">
+        <li><b>Gold publishes with an outbox.</b> Each alert row has a "published" time, empty at
+          first. The publish step sends only empty ones, waits for Kafka to confirm
+          (<span data-term="acks">acks=all</span>), then fills the time in. A crash in between
+          means the alert is sent again, never lost.</li>
+        <li><b>The service stores before it confirms.</b> It tells Kafka it has read a message
+          (<span data-term="commit-offset">commits the offset</span>) only after saving the alert.
+          If it stops in between, Kafka sends the alert again.</li>
+        <li><b>Sending twice is harmless.</b> Alerts are saved by their ID
+          (<span data-term="idempotent">idempotent</span>), so a repeat only refreshes the
+          evidence. An analyst's decision is never overwritten.</li>
+        <li><b>One account, one order.</b> Alerts use the account as their
+          <span data-term="message-key">Kafka key</span>, so an account's alerts arrive in order.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>What analysts can do (<span data-term="rest-api">REST API</span>)</h3>
+<pre><code>GET   /alerts?status=OPEN&amp;rule=card_velocity
+GET   /alerts/{alert_id}
+PATCH /alerts/{alert_id}   {"status": "CONFIRMED", "note": "card blocked"}
+GET   /stats               counts by rule and status
+GET   /health
+GET   /docs                interactive API documentation</code></pre>
+      <p class="small muted">Built with <span data-term="fastapi">FastAPI</span>. It runs in its
+        own 255 MB <span data-term="docker">Docker</span> image, without Spark or database
+        drivers, as a non-root user. The store is SQLite, behind a small class, so a
+        production database would not change the API.</p>
+    </div>
+  </div>
+
   <h2 id="tables">Delta tables</h2>
   <p class="muted">The <span data-term="delta">Delta Lake</span> tables the pipeline writes. The
     first three run the pipeline itself (<span data-term="control-table">control tables</span>);
@@ -213,7 +260,7 @@
         <tr><td><code>bronze_change_events</code></td><td>event</td><td>every event exactly as received, never duplicated</td></tr>
         <tr><td><code>silver_*</code></td><td>entity row</td><td>the current version of each customer, account, payment and transfer</td></tr>
         <tr><td><code>dq_reconciliation</code></td><td>check per run</td><td>each completeness check: source value, copy value, pass or fail</td></tr>
-        <tr><td><code>gold_fraud_alerts</code></td><td>alert</td><td>each alert: rule, account, the payments that triggered it, and how fast it was raised</td></tr>
+        <tr><td><code>gold_fraud_alerts</code></td><td>alert</td><td>each alert: rule, account, the payments that triggered it, how fast it was raised, and when it was published to Kafka</td></tr>
       </tbody>
     </table>
   </div>

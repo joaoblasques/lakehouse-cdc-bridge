@@ -13,7 +13,9 @@ from banking_cdc.pipeline.medallion import run_bronze, spark_kafka_options
 from banking_cdc.pipeline.topics import ensure_topics
 
 topics = sorted({t for s in CFG["sources"].values() for t in topic_map(s).values()})
-ensure_topics(KAFKA, [*topics, CFG["kafka"]["dlq_topic"]])  # no-op once provisioned
+ensure_topics(
+    KAFKA, [*topics, CFG["kafka"]["dlq_topic"], CFG["kafka"]["alerts_topic"]]
+)  # no-op once provisioned
 progress = run_bronze(
     spark,
     NS,

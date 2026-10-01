@@ -33,6 +33,9 @@ DB2 ──(row-change timestamp + snapshot diff)┤
              02 Bronze (dedup on event_id) → 03 Silver (MERGE, newest wins, soft deletes)
                                             ├─ 04 reconcile (source ↔ Silver, audit ↔ Bronze)
                                             └─ 05 Gold fraud alerts (velocity, travel, structuring)
+                                                    │ outbox → Kafka: banking.fraud.alerts
+                                                    ▼
+                                       fraud-alert service (FastAPI): analyst queue
 ```
 
 - **CDC runs inside Databricks** and publishes to Kafka, the opposite of the Debezium-first
@@ -63,8 +66,10 @@ docker compose --profile db2 up -d db2    # optional: Db2 11.5 (4 GB, a few minu
 uv run pytest                             # unit + Spark/Delta tests
 uv run pytest -m integration              # real SQL Server CDC, end to end
 uv run pytest -m db2                      # real DB2: replayed events rebuild the table
+uv run pytest -m kafka                    # real Kafka: alerts reach the service exactly once
 uv run python scripts/run_local.py --fresh   # full pipeline → site/data/run_metrics.json
 python -m http.server -d site 8000        # browse the results
+docker compose --profile api up -d --build alerts-api   # analyst API on http://localhost:8080/docs
 ```
 
 ## Deploy to Databricks
@@ -84,6 +89,7 @@ key names are listed on the [Deploy](https://joaoblasques.github.io/lakehouse-cd
 | `src/banking_cdc/sources/` | CDC adapters: SQL Server (log), Azure File Share (manifest), DB2 (timestamp + snapshot) |
 | `src/banking_cdc/pipeline/` | capture → Kafka, Bronze/Silver, reconciliation, Gold rules |
 | `src/banking_cdc/generator.py` | synthetic bank with labelled fraud patterns |
+| `src/banking_cdc/alerts_service/` | fraud-alert microservice: Kafka consumer + FastAPI analyst queue |
 | `notebooks/` | Databricks tasks |
 | `databricks.yml` | Asset Bundle: the Workflows job |
 | `schemas/change_event.schema.json` | the event contract |
@@ -92,6 +98,6 @@ key names are listed on the [Deploy](https://joaoblasques.github.io/lakehouse-cd
 
 ## Roadmap
 
-A SingleStore adapter, a FastAPI fraud-alert microservice consuming from Kafka, Schema
-Registry serialisation, SCD2 history, an AI assistant that drafts `sources.yml` entries from
-DDL, and an MLflow fraud model scored on the same harness as the rules.
+A SingleStore adapter, analyst decisions sent back as events, Schema Registry serialisation,
+SCD2 history, an AI assistant that drafts `sources.yml` entries from DDL, and an MLflow fraud
+model scored on the same harness as the rules.

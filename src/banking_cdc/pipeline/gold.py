@@ -81,6 +81,7 @@ def run_gold(spark, ns: str) -> int:
             ),
         )
         .withColumn("alert_created_at", F.current_timestamp())
+        .withColumn("published_at", F.lit(None).cast("timestamp"))
         .withColumn(
             "latency_seconds",
             F.unix_micros("alert_created_at").cast("double") / 1e6
