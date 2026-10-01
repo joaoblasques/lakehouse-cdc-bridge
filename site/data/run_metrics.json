@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T13:57:46.124159+00:00",
+  "generated_at": "2026-10-01T14:43:50.699210+00:00",
   "environment": "local: docker compose (SQL Server 2022, Db2 11.5 + Confluent cp-kafka 7.7, KRaft) + Spark 4.0.1 / Delta Lake, 4 cores",
   "params": {
     "rounds": 6,
@@ -14,48 +14,49 @@
       "label": "initial load",
       "source_ops": 341,
       "files": 0,
-      "capture_job_lag_s": 0.51,
+      "capture_job_lag_s": 5.52,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "64468233-f272-4af6-b7d1-54c07dcc48a4",
+          "trace_id": "5f230353-ff64-44da-8b79-b9eb345d873e",
           "events": 341,
           "rejects": 0,
           "ops": {
             "c": 341
           },
           "files": 0,
-          "seconds": 10.232873
+          "seconds": 13.266486
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "5fd540c3-b636-43a6-b681-e14540eb1ea3",
+          "trace_id": "484e2d00-8230-4cce-8b1d-c1ea5a442a78",
           "events": 0,
           "rejects": 0,
           "ops": {},
           "files": 0,
-          "seconds": 3.208586
+          "seconds": 3.774573
         },
         {
           "source_name": "db2_core",
-          "trace_id": "14384fda-b4a3-4b87-90c8-506075b8b547",
+          "trace_id": "ddf39818-744c-4e82-99c8-c67ca70ae679",
           "events": 55,
           "rejects": 0,
           "ops": {
             "c": 55
           },
           "files": 0,
-          "seconds": 3.787224
+          "seconds": 4.782166
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 10.23,
-        "capture:partner_fileshare": 3.21,
-        "capture:db2_core": 3.79,
-        "bronze": 6.38,
-        "silver": 15.77,
-        "gold": 4.01,
-        "reconcile": 7.88
+        "capture:sqlserver_cards": 13.27,
+        "capture:partner_fileshare": 3.77,
+        "capture:db2_core": 4.78,
+        "bronze": 7.76,
+        "silver": 19.41,
+        "gold": 5.1,
+        "publish_alerts": 0.23,
+        "reconcile": 6.16
       },
       "reconciliation": [
         {
@@ -114,11 +115,11 @@
       "label": "hour 1",
       "source_ops": 159,
       "files": 1,
-      "capture_job_lag_s": 1.01,
+      "capture_job_lag_s": 1.51,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "cfb498ab-600d-45d2-925e-fabed429ab0b",
+          "trace_id": "ffb8284d-6c22-476f-a819-6d1b9cf8a5f1",
           "events": 159,
           "rejects": 0,
           "ops": {
@@ -126,22 +127,22 @@
             "c": 156
           },
           "files": 0,
-          "seconds": 3.996336
+          "seconds": 4.371298
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "76518075-8770-471d-9f83-2b44a3a9e850",
+          "trace_id": "2cd75721-1287-4055-8699-b9aee8cf7560",
           "events": 28,
           "rejects": 0,
           "ops": {
             "c": 28
           },
           "files": 1,
-          "seconds": 5.042324
+          "seconds": 4.59338
         },
         {
           "source_name": "db2_core",
-          "trace_id": "7d3d9d0f-0704-4e26-bfad-4715420391ed",
+          "trace_id": "03700bf0-50f0-41b5-ad6d-5f001c408006",
           "events": 14,
           "rejects": 0,
           "ops": {
@@ -149,17 +150,18 @@
             "c": 4
           },
           "files": 0,
-          "seconds": 4.486963
+          "seconds": 3.48556
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 4.0,
-        "capture:partner_fileshare": 5.04,
-        "capture:db2_core": 4.49,
-        "bronze": 3.63,
-        "silver": 11.32,
-        "gold": 5.88,
-        "reconcile": 6.26
+        "capture:sqlserver_cards": 4.37,
+        "capture:partner_fileshare": 4.59,
+        "capture:db2_core": 3.49,
+        "bronze": 3.37,
+        "silver": 12.02,
+        "gold": 6.26,
+        "publish_alerts": 2.54,
+        "reconcile": 6.33
       },
       "reconciliation": [
         {
@@ -218,11 +220,11 @@
       "label": "hour 2",
       "source_ops": 439,
       "files": 1,
-      "capture_job_lag_s": 2.01,
+      "capture_job_lag_s": 4.52,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "b2ad2638-5627-46f5-9547-2f497210ec82",
+          "trace_id": "c234780b-42a9-4b03-9cd4-981885b8be0b",
           "events": 439,
           "rejects": 0,
           "ops": {
@@ -231,22 +233,22 @@
             "c": 152
           },
           "files": 0,
-          "seconds": 3.352656
+          "seconds": 3.194262
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "3220dd12-c1c3-47b0-98f7-8fa2b7c8a24b",
+          "trace_id": "9fdd87eb-26cf-4cf5-a6ef-a3b9939adea1",
           "events": 25,
           "rejects": 1,
           "ops": {
             "c": 25
           },
           "files": 1,
-          "seconds": 4.175742
+          "seconds": 4.559721
         },
         {
           "source_name": "db2_core",
-          "trace_id": "cbe9f4af-b2f1-4214-9a0b-a772c23c1e76",
+          "trace_id": "8cee2f4e-cb00-41d0-a1d0-eb88867e5884",
           "events": 16,
           "rejects": 0,
           "ops": {
@@ -254,17 +256,18 @@
             "c": 4
           },
           "files": 0,
-          "seconds": 3.281069
+          "seconds": 3.182087
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 3.35,
-        "capture:partner_fileshare": 4.18,
-        "capture:db2_core": 3.28,
-        "bronze": 3.76,
-        "silver": 10.56,
-        "gold": 6.55,
-        "reconcile": 5.6
+        "capture:sqlserver_cards": 3.2,
+        "capture:partner_fileshare": 4.56,
+        "capture:db2_core": 3.18,
+        "bronze": 4.08,
+        "silver": 9.78,
+        "gold": 7.58,
+        "publish_alerts": 2.09,
+        "reconcile": 6.31
       },
       "reconciliation": [
         {
@@ -323,11 +326,11 @@
       "label": "hour 3",
       "source_ops": 440,
       "files": 1,
-      "capture_job_lag_s": 4.52,
+      "capture_job_lag_s": 1.0,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "febbfe05-c689-4703-adf9-9c28c227d0a5",
+          "trace_id": "69b71c9f-9048-4af4-8e24-31297c426187",
           "events": 440,
           "rejects": 0,
           "ops": {
@@ -336,22 +339,22 @@
             "c": 158
           },
           "files": 0,
-          "seconds": 4.755282
+          "seconds": 4.736045
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "715ee610-e018-45fa-bf24-bc30addf14b2",
+          "trace_id": "b82166b5-74c1-41d6-b7be-e266babac28c",
           "events": 29,
           "rejects": 0,
           "ops": {
             "c": 29
           },
           "files": 1,
-          "seconds": 5.049165
+          "seconds": 5.306119
         },
         {
           "source_name": "db2_core",
-          "trace_id": "5645770f-94c0-443a-93d3-832b01f0567c",
+          "trace_id": "c749bec6-d24a-40a2-b012-4f363544454a",
           "events": 20,
           "rejects": 0,
           "ops": {
@@ -360,17 +363,18 @@
             "d": 2
           },
           "files": 0,
-          "seconds": 3.604259
+          "seconds": 3.66854
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 4.76,
-        "capture:partner_fileshare": 5.05,
-        "capture:db2_core": 3.6,
-        "bronze": 3.65,
-        "silver": 9.49,
-        "gold": 6.57,
-        "reconcile": 5.73
+        "capture:sqlserver_cards": 4.74,
+        "capture:partner_fileshare": 5.31,
+        "capture:db2_core": 3.67,
+        "bronze": 3.9,
+        "silver": 10.49,
+        "gold": 6.27,
+        "publish_alerts": 1.88,
+        "reconcile": 5.9
       },
       "reconciliation": [
         {
@@ -429,11 +433,11 @@
       "label": "hour 4",
       "source_ops": 464,
       "files": 1,
-      "capture_job_lag_s": 3.52,
+      "capture_job_lag_s": 5.02,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "5d2c6591-cccb-4ea9-8c53-143768663ba5",
+          "trace_id": "6afeaa7c-2cad-4458-b01a-a11a2ac43b6e",
           "events": 464,
           "rejects": 0,
           "ops": {
@@ -442,22 +446,22 @@
             "c": 160
           },
           "files": 0,
-          "seconds": 2.914515
+          "seconds": 3.011946
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "9210c81a-eeef-4283-abc4-4d15419f6845",
+          "trace_id": "bcb03d05-0359-4c7d-9b2e-ab90719c3fc2",
           "events": 25,
           "rejects": 0,
           "ops": {
             "c": 25
           },
           "files": 1,
-          "seconds": 3.991301
+          "seconds": 4.350776
         },
         {
           "source_name": "db2_core",
-          "trace_id": "512b79a4-d0ec-4669-b0e3-516d49007c31",
+          "trace_id": "95baa878-5dea-41bd-afab-273837373fd5",
           "events": 18,
           "rejects": 0,
           "ops": {
@@ -465,17 +469,18 @@
             "c": 4
           },
           "files": 0,
-          "seconds": 3.165769
+          "seconds": 3.194479
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 2.92,
-        "capture:partner_fileshare": 3.99,
-        "capture:db2_core": 3.17,
-        "bronze": 3.77,
-        "silver": 9.19,
-        "gold": 5.98,
-        "reconcile": 5.54
+        "capture:sqlserver_cards": 3.01,
+        "capture:partner_fileshare": 4.35,
+        "capture:db2_core": 3.19,
+        "bronze": 3.55,
+        "silver": 9.92,
+        "gold": 6.83,
+        "publish_alerts": 1.67,
+        "reconcile": 6.73
       },
       "reconciliation": [
         {
@@ -534,11 +539,11 @@
       "label": "hour 5",
       "source_ops": 454,
       "files": 1,
-      "capture_job_lag_s": 2.51,
+      "capture_job_lag_s": 3.02,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "89d6cfab-a1a9-457b-aff9-7cc5246473a8",
+          "trace_id": "79ecb26a-431a-4005-908c-e80a63c9e9e2",
           "events": 454,
           "rejects": 0,
           "ops": {
@@ -547,22 +552,22 @@
             "c": 152
           },
           "files": 0,
-          "seconds": 3.423731
+          "seconds": 2.475733
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "5981b7e0-86f3-4825-bd23-55be4cbc9670",
+          "trace_id": "d2d67a37-e684-48c7-9c39-478dc6dcbe46",
           "events": 29,
           "rejects": 0,
           "ops": {
             "c": 29
           },
           "files": 1,
-          "seconds": 4.251857
+          "seconds": 4.086578
         },
         {
           "source_name": "db2_core",
-          "trace_id": "89e3ce99-2d4c-4579-b453-d4c86b7b6f6d",
+          "trace_id": "04ddaea3-06f9-488c-b43f-3db922afb0ee",
           "events": 16,
           "rejects": 0,
           "ops": {
@@ -570,17 +575,18 @@
             "c": 4
           },
           "files": 0,
-          "seconds": 2.813046
+          "seconds": 2.949089
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 3.42,
-        "capture:partner_fileshare": 4.25,
-        "capture:db2_core": 2.81,
-        "bronze": 3.49,
-        "silver": 9.07,
-        "gold": 5.67,
-        "reconcile": 6.77
+        "capture:sqlserver_cards": 2.48,
+        "capture:partner_fileshare": 4.09,
+        "capture:db2_core": 2.95,
+        "bronze": 4.06,
+        "silver": 9.61,
+        "gold": 6.86,
+        "publish_alerts": 3.76,
+        "reconcile": 6.18
       },
       "reconciliation": [
         {
@@ -639,11 +645,11 @@
       "label": "hour 6",
       "source_ops": 448,
       "files": 1,
-      "capture_job_lag_s": 1.51,
+      "capture_job_lag_s": 2.01,
       "captures": [
         {
           "source_name": "sqlserver_cards",
-          "trace_id": "332d0e7e-3d5b-4e65-afe6-9df412473c81",
+          "trace_id": "9673fc27-efe5-4392-8af5-f00380344223",
           "events": 448,
           "rejects": 0,
           "ops": {
@@ -652,22 +658,22 @@
             "c": 159
           },
           "files": 0,
-          "seconds": 2.73543
+          "seconds": 2.935194
         },
         {
           "source_name": "partner_fileshare",
-          "trace_id": "11593a9b-ae05-4b77-ba52-3331261797f8",
+          "trace_id": "fcfe55b5-ae3c-4eef-8893-8d01d97bf032",
           "events": 29,
           "rejects": 0,
           "ops": {
             "c": 29
           },
           "files": 1,
-          "seconds": 5.471809
+          "seconds": 5.841986
         },
         {
           "source_name": "db2_core",
-          "trace_id": "a2d726b1-3a29-4214-869c-eadd7f5fe2de",
+          "trace_id": "914c0d3b-e640-41d9-964f-88b8acdf776b",
           "events": 19,
           "rejects": 0,
           "ops": {
@@ -676,17 +682,18 @@
             "d": 2
           },
           "files": 0,
-          "seconds": 3.919848
+          "seconds": 4.307244
         }
       ],
       "step_seconds": {
-        "capture:sqlserver_cards": 2.74,
-        "capture:partner_fileshare": 5.47,
-        "capture:db2_core": 3.92,
-        "bronze": 3.7,
-        "silver": 8.93,
-        "gold": 5.9,
-        "reconcile": 5.48
+        "capture:sqlserver_cards": 2.94,
+        "capture:partner_fileshare": 5.84,
+        "capture:db2_core": 4.31,
+        "bronze": 3.68,
+        "silver": 9.51,
+        "gold": 6.42,
+        "publish_alerts": 2.08,
+        "reconcile": 5.57
       },
       "reconciliation": [
         {
@@ -851,298 +858,350 @@
     }
   },
   "latency_seconds": {
-    "p50": 29.35,
-    "p95": 33.93,
-    "max": 33.93,
+    "p50": 31.96,
+    "p95": 32.31,
+    "max": 32.34,
     "n": 23,
     "by_alert": [
       {
         "rule": "structuring",
-        "seconds": 29.06
-      },
-      {
-        "rule": "card_velocity",
-        "seconds": 32.4
+        "seconds": 31.17
       },
       {
         "rule": "impossible_travel",
-        "seconds": 29.06
+        "seconds": 31.17
       },
       {
         "rule": "impossible_travel",
-        "seconds": 28.43
+        "seconds": 32.21
       },
       {
         "rule": "card_velocity",
-        "seconds": 33.93
+        "seconds": 31.96
+      },
+      {
+        "rule": "card_velocity",
+        "seconds": 32.31
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 31.17
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 29.13
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 32.34
+      },
+      {
+        "rule": "card_velocity",
+        "seconds": 31.17
       },
       {
         "rule": "structuring",
-        "seconds": 28.38
+        "seconds": 32.3
       },
       {
         "rule": "impossible_travel",
-        "seconds": 29.06
-      },
-      {
-        "rule": "impossible_travel",
-        "seconds": 29.1
-      },
-      {
-        "rule": "impossible_travel",
-        "seconds": 30.06
-      },
-      {
-        "rule": "impossible_travel",
-        "seconds": 28.38
-      },
-      {
-        "rule": "impossible_travel",
-        "seconds": 29.35
-      },
-      {
-        "rule": "impossible_travel",
-        "seconds": 28.38
-      },
-      {
-        "rule": "impossible_travel",
-        "seconds": 30.17
+        "seconds": 31.17
       },
       {
         "rule": "card_velocity",
-        "seconds": 29.06
+        "seconds": 32.0
       },
       {
         "rule": "impossible_travel",
-        "seconds": 29.37
+        "seconds": 31.22
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 29.08
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 31.96
+      },
+      {
+        "rule": "impossible_travel",
+        "seconds": 32.0
       },
       {
         "rule": "structuring",
-        "seconds": 32.39
+        "seconds": 29.07
       },
       {
         "rule": "impossible_travel",
-        "seconds": 33.93
+        "seconds": 32.21
       },
       {
         "rule": "impossible_travel",
-        "seconds": 29.35
+        "seconds": 29.08
       },
       {
         "rule": "impossible_travel",
-        "seconds": 30.06
+        "seconds": 31.96
       },
       {
         "rule": "impossible_travel",
-        "seconds": 29.06
+        "seconds": 31.97
       },
       {
         "rule": "impossible_travel",
-        "seconds": 33.93
-      },
-      {
-        "rule": "card_velocity",
-        "seconds": 29.35
+        "seconds": 32.0
       },
       {
         "rule": "structuring",
-        "seconds": 33.92
+        "seconds": 32.0
       }
     ]
   },
   "lineage_samples": [
     {
-      "alert_id": "13e0a55dedccc1d94474614595a4402ad4d737c91f2bab9613915551b8d9da09",
+      "alert_id": "d0757eb7c8a2f119732c4f9d656d6dc86abd9db46757e2e25dd31ae205e6776a",
       "rule": "card_velocity",
-      "account_id": 15,
-      "alert_created_at": "2026-10-01 13:53:59.525740",
-      "latency_seconds": 32.4,
+      "account_id": 167,
+      "alert_created_at": "2026-10-01 14:41:59.051908",
+      "latency_seconds": 31.96,
       "events": [
         {
-          "event_id": "840c1834f5904c985034c1f94b990a0f53510e3e8facd12b0582b5ae1b1856b4",
+          "event_id": "91f99f2e29f221e5ba524dd916867282a13a87467a3fb80db2d09ca0563b7f0c",
           "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d000008880004:0x0000002d000008700002",
-          "source_commit_ts": "2026-10-01 13:53:27.127",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780003",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 2,
-          "kafka_offset": 40,
-          "entity_key": "151",
-          "after_json": "{\"account_id\":15,\"amount\":\"58.14\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5651\",\"merchant\":\"Zara\",\"status\":\"AUTHORISED\",\"tx_id\":151,\"tx_ts\":\"2026-10-01T08:07:00\"}"
+          "kafka_offset": 336,
+          "entity_key": "617",
+          "after_json": "{\"account_id\":167,\"amount\":\"145.77\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"AUTHORISED\",\"tx_id\":617,\"tx_ts\":\"2026-10-01T11:12:25\"}"
         },
         {
-          "event_id": "075596e8fa63ae6c137a60bb9a86b07835e189d1f56490b67d3ccce66a58b718",
+          "event_id": "66a781c5258bf6adca430e675e7615c70d54d5b1d11424c8de09976a51a48629",
           "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d000008880004:0x0000002d000008700003",
-          "source_commit_ts": "2026-10-01 13:53:27.127",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780004",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 0,
-          "kafka_offset": 56,
-          "entity_key": "152",
-          "after_json": "{\"account_id\":15,\"amount\":\"66.89\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"AUTHORISED\",\"tx_id\":152,\"tx_ts\":\"2026-10-01T08:11:47\"}"
+          "kafka_offset": 350,
+          "entity_key": "618",
+          "after_json": "{\"account_id\":167,\"amount\":\"76.87\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5732\",\"merchant\":\"Worten\",\"status\":\"AUTHORISED\",\"tx_id\":618,\"tx_ts\":\"2026-10-01T11:19:06\"}"
         },
         {
-          "event_id": "7d08e493e9465abbb0cbbd066ffeced01a99bbe74c9e6b8729736c78685bd673",
+          "event_id": "1bd0d41ef0419e9d81802ba50507b78cfd7e51a360d34a310c62a0fcc59a26f5",
           "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d000008880004:0x0000002d000008700004",
-          "source_commit_ts": "2026-10-01 13:53:27.127",
-          "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 0,
-          "kafka_offset": 57,
-          "entity_key": "153",
-          "after_json": "{\"account_id\":15,\"amount\":\"153.68\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"AUTHORISED\",\"tx_id\":153,\"tx_ts\":\"2026-10-01T08:12:48\"}"
-        },
-        {
-          "event_id": "b989053ad2bcc1deff97dc4dc7b67adab88d54fc8ce63b2faefd7bb3381de2cb",
-          "op": "c",
-          "source_system": "sqlserver",
-          "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d000008880004:0x0000002d000008700005",
-          "source_commit_ts": "2026-10-01 13:53:27.127",
-          "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 0,
-          "kafka_offset": 58,
-          "entity_key": "154",
-          "after_json": "{\"account_id\":15,\"amount\":\"97.36\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"AUTHORISED\",\"tx_id\":154,\"tx_ts\":\"2026-10-01T08:04:55\"}"
-        },
-        {
-          "event_id": "ae7479716c0e3cb00be18f0f58dfd59000925765653d08031e1da147773c2fd2",
-          "op": "c",
-          "source_system": "sqlserver",
-          "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d000008880004:0x0000002d000008700006",
-          "source_commit_ts": "2026-10-01 13:53:27.127",
-          "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 1,
-          "kafka_offset": 54,
-          "entity_key": "155",
-          "after_json": "{\"account_id\":15,\"amount\":\"193.22\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4121\",\"merchant\":\"Uber\",\"status\":\"AUTHORISED\",\"tx_id\":155,\"tx_ts\":\"2026-10-01T08:05:50\"}"
-        },
-        {
-          "event_id": "b6d191fd831dbc74f21bdbe3b8d2d602d6f236293bb7bc03b647870c6f539439",
-          "op": "c",
-          "source_system": "sqlserver",
-          "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d000008880004:0x0000002d000008700007",
-          "source_commit_ts": "2026-10-01 13:53:27.127",
-          "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 1,
-          "kafka_offset": 55,
-          "entity_key": "156",
-          "after_json": "{\"account_id\":15,\"amount\":\"69.09\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Pingo Doce\",\"status\":\"AUTHORISED\",\"tx_id\":156,\"tx_ts\":\"2026-10-01T08:07:54\"}"
-        },
-        {
-          "event_id": "3a39d03f96f1de24ece2378e7f6eb1689da8a38e0c8c88e9bc7507e748b2584c",
-          "op": "u",
-          "source_system": "sqlserver",
-          "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d00000c100034:0x0000002d00000c100019",
-          "source_commit_ts": "2026-10-01 13:54:11.543",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780005",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 2,
-          "kafka_offset": 80,
-          "entity_key": "151",
-          "after_json": "{\"account_id\":15,\"amount\":\"58.14\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5651\",\"merchant\":\"Zara\",\"status\":\"SETTLED\",\"tx_id\":151,\"tx_ts\":\"2026-10-01T08:07:00\"}"
+          "kafka_offset": 337,
+          "entity_key": "619",
+          "after_json": "{\"account_id\":167,\"amount\":\"188.91\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"AUTHORISED\",\"tx_id\":619,\"tx_ts\":\"2026-10-01T11:14:59\"}"
         },
         {
-          "event_id": "e8d28f91dbabfd269668f58631a78f17fbe442520617413481606b8bb1af63fd",
-          "op": "u",
+          "event_id": "10689e8f6e7900d0dee7f1e574e38eb77a2b6b84273f45908b8467e1ab9f648a",
+          "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d00000c100034:0x0000002d00000c10001b",
-          "source_commit_ts": "2026-10-01 13:54:11.543",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780006",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 338,
+          "entity_key": "620",
+          "after_json": "{\"account_id\":167,\"amount\":\"162.81\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"AUTHORISED\",\"tx_id\":620,\"tx_ts\":\"2026-10-01T11:19:51\"}"
+        },
+        {
+          "event_id": "5549facbbf08ce0b3b7b01e118bdd6919af4030f6bf940a00e12065a15a0659a",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780007",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 0,
-          "kafka_offset": 114,
-          "entity_key": "152",
-          "after_json": "{\"account_id\":15,\"amount\":\"66.89\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"SETTLED\",\"tx_id\":152,\"tx_ts\":\"2026-10-01T08:11:47\"}"
+          "kafka_offset": 351,
+          "entity_key": "621",
+          "after_json": "{\"account_id\":167,\"amount\":\"184.43\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5812\",\"merchant\":\"Restaurante O Tasco\",\"status\":\"AUTHORISED\",\"tx_id\":621,\"tx_ts\":\"2026-10-01T11:17:42\"}"
         },
         {
-          "event_id": "b575e272ba3b32b48ab1c0387af8c3c9cb19187ca91c3d5ea4472e99e0645627",
-          "op": "u",
+          "event_id": "44ffce5eafd949544d7a701da17bfc6436c09ca11a41620f7b39c90d8039c5d3",
+          "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d00000c100034:0x0000002d00000c10001d",
-          "source_commit_ts": "2026-10-01 13:54:11.543",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780008",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
           "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 0,
-          "kafka_offset": 115,
-          "entity_key": "153",
-          "after_json": "{\"account_id\":15,\"amount\":\"153.68\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"SETTLED\",\"tx_id\":153,\"tx_ts\":\"2026-10-01T08:12:48\"}"
+          "kafka_partition": 2,
+          "kafka_offset": 339,
+          "entity_key": "622",
+          "after_json": "{\"account_id\":167,\"amount\":\"126.81\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Continente\",\"status\":\"AUTHORISED\",\"tx_id\":622,\"tx_ts\":\"2026-10-01T11:18:09\"}"
         },
         {
-          "event_id": "c165e84704a647be2c47b2ce0a554169667a608134e238f6e10f27f3931c548d",
-          "op": "u",
+          "event_id": "cac672aab8857148f7a6c867ae58e83b9049eb639e62a3881c9d5bc6a064eb2d",
+          "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d00000c100034:0x0000002d00000c10001f",
-          "source_commit_ts": "2026-10-01 13:54:11.543",
-          "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 0,
-          "kafka_offset": 116,
-          "entity_key": "154",
-          "after_json": "{\"account_id\":15,\"amount\":\"97.36\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"SETTLED\",\"tx_id\":154,\"tx_ts\":\"2026-10-01T08:04:55\"}"
-        },
-        {
-          "event_id": "2521bb6f2a5d82f9bf54f119d6b5d04458284fc90cc1e9ed9bece74628d8fe89",
-          "op": "u",
-          "source_system": "sqlserver",
-          "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d00000c100034:0x0000002d00000c100021",
-          "source_commit_ts": "2026-10-01 13:54:11.543",
+          "source_position": "0x0000002e000002780010:0x0000002e000002780009",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 1,
-          "kafka_offset": 108,
-          "entity_key": "155",
-          "after_json": "{\"account_id\":15,\"amount\":\"193.22\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4121\",\"merchant\":\"Uber\",\"status\":\"SETTLED\",\"tx_id\":155,\"tx_ts\":\"2026-10-01T08:05:50\"}"
+          "kafka_offset": 392,
+          "entity_key": "623",
+          "after_json": "{\"account_id\":167,\"amount\":\"157.28\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4121\",\"merchant\":\"Uber\",\"status\":\"AUTHORISED\",\"tx_id\":623,\"tx_ts\":\"2026-10-01T11:15:00\"}"
         },
         {
-          "event_id": "d1cc5b87414f5b4a00b080c906c1ab886d346e50dfa17e6410d0c8c38b268452",
+          "event_id": "0f40cfa5fb38871eb9b599a8842829f3d9fb06ca8378c68f0091b4bfa50f5bcb",
+          "op": "c",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000002780010:0x0000002e00000278000a",
+          "source_commit_ts": "2026-10-01 14:41:27.093",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 352,
+          "entity_key": "624",
+          "after_json": "{\"account_id\":167,\"amount\":\"71.38\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4722\",\"merchant\":\"Booking.com\",\"status\":\"AUTHORISED\",\"tx_id\":624,\"tx_ts\":\"2026-10-01T11:15:30\"}"
+        },
+        {
+          "event_id": "2d521aea6f45ea3495532c022eb492f4042298b40a89ca6405447aedcb1700af",
           "op": "u",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002d00000c100034:0x0000002d00000c100023",
-          "source_commit_ts": "2026-10-01 13:54:11.543",
+          "source_position": "0x0000002e000005280034:0x0000002e000005280020",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 391,
+          "entity_key": "617",
+          "after_json": "{\"account_id\":167,\"amount\":\"145.77\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"SETTLED\",\"tx_id\":617,\"tx_ts\":\"2026-10-01T11:12:25\"}"
+        },
+        {
+          "event_id": "ac1f0ca4d259814492387dd57db36dab440bdf88d9c061d203673012a58c43e2",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e000005280022",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 397,
+          "entity_key": "618",
+          "after_json": "{\"account_id\":167,\"amount\":\"76.87\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5732\",\"merchant\":\"Worten\",\"status\":\"SETTLED\",\"tx_id\":618,\"tx_ts\":\"2026-10-01T11:19:06\"}"
+        },
+        {
+          "event_id": "c7840c3fc621534093f29a836e13c02bbba1f4d6bbd2276986a9ee746e48b1be",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e000005280024",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 392,
+          "entity_key": "619",
+          "after_json": "{\"account_id\":167,\"amount\":\"188.91\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5541\",\"merchant\":\"Galp\",\"status\":\"SETTLED\",\"tx_id\":619,\"tx_ts\":\"2026-10-01T11:14:59\"}"
+        },
+        {
+          "event_id": "30b2906bcad7d8d89c3657b22b929bff0848f9c8dc841972b23b6d09e57b93ac",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e000005280026",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 393,
+          "entity_key": "620",
+          "after_json": "{\"account_id\":167,\"amount\":\"162.81\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5912\",\"merchant\":\"Farm\u00e1cia Central\",\"status\":\"REVERSED\",\"tx_id\":620,\"tx_ts\":\"2026-10-01T11:19:51\"}"
+        },
+        {
+          "event_id": "58d4ab9ca157433b0382c28526fe6356867f06ff91eefe7f4db8a759907e5054",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e000005280027",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 398,
+          "entity_key": "621",
+          "after_json": "{\"account_id\":167,\"amount\":\"184.43\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5812\",\"merchant\":\"Restaurante O Tasco\",\"status\":\"SETTLED\",\"tx_id\":621,\"tx_ts\":\"2026-10-01T11:17:42\"}"
+        },
+        {
+          "event_id": "bbd9ab974765282a9957f5a818fde2646a2e89b7b733199b9648bab89e72011a",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e000005280029",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 2,
+          "kafka_offset": 394,
+          "entity_key": "622",
+          "after_json": "{\"account_id\":167,\"amount\":\"126.81\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Continente\",\"status\":\"SETTLED\",\"tx_id\":622,\"tx_ts\":\"2026-10-01T11:18:09\"}"
+        },
+        {
+          "event_id": "844caba28274dd0bf9236492db1b3ba674910a9c0f5a11bf093bc09d7fc63d66",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e00000528002b",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 1,
-          "kafka_offset": 109,
-          "entity_key": "156",
-          "after_json": "{\"account_id\":15,\"amount\":\"69.09\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Pingo Doce\",\"status\":\"REVERSED\",\"tx_id\":156,\"tx_ts\":\"2026-10-01T08:07:54\"}"
+          "kafka_offset": 449,
+          "entity_key": "623",
+          "after_json": "{\"account_id\":167,\"amount\":\"157.28\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4121\",\"merchant\":\"Uber\",\"status\":\"SETTLED\",\"tx_id\":623,\"tx_ts\":\"2026-10-01T11:15:00\"}"
+        },
+        {
+          "event_id": "f967d2b3ffd8d79e0b291e82947ca33bb82cfb9231ce008797a34fb6fe84830c",
+          "op": "u",
+          "source_system": "sqlserver",
+          "source_table": "dbo.card_transactions",
+          "source_position": "0x0000002e000005280034:0x0000002e00000528002d",
+          "source_commit_ts": "2026-10-01 14:42:14.187",
+          "kafka_topic": "banking.cdc.cards.card_transactions",
+          "kafka_partition": 0,
+          "kafka_offset": 399,
+          "entity_key": "624",
+          "after_json": "{\"account_id\":167,\"amount\":\"71.38\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"4722\",\"merchant\":\"Booking.com\",\"status\":\"SETTLED\",\"tx_id\":624,\"tx_ts\":\"2026-10-01T11:15:30\"}"
         }
       ]
     },
     {
-      "alert_id": "2163760ec84f750c253eaa16cb31c8bb69e95e2125412ca7ec539d9ca00ab15a",
+      "alert_id": "5c742f5094471b5797738f7b43fd9123b212a931881c23f4be41c2bb0215f2d5",
       "rule": "impossible_travel",
       "account_id": 15,
-      "alert_created_at": "2026-10-01 13:57:31.409963",
-      "latency_seconds": 29.06,
+      "alert_created_at": "2026-10-01 14:43:31.503693",
+      "latency_seconds": 31.17,
       "events": [
         {
-          "event_id": "f28b452bd6cd567f383a7dbd9b6976c544a4c15409b028b559263b21ce0dfc8c",
+          "event_id": "9ed1a842027339b1a33e3b9c65f4014ff1a4d8c39575f21065e1cd5e62a53a33",
           "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002e000007a00034:0x0000002e000007a00031",
-          "source_commit_ts": "2026-10-01 13:57:02.24",
+          "source_position": "0x0000002e000008c00040:0x0000002e000008c00020",
+          "source_commit_ts": "2026-10-01 14:43:00.33",
           "kafka_topic": "banking.cdc.cards.card_transactions",
-          "kafka_partition": 2,
-          "kafka_offset": 515,
-          "entity_key": "790",
-          "after_json": "{\"account_id\":15,\"amount\":\"247.61\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Continente\",\"status\":\"AUTHORISED\",\"tx_id\":790,\"tx_ts\":\"2026-10-01T13:29:31\"}"
+          "kafka_partition": 1,
+          "kafka_offset": 578,
+          "entity_key": "909",
+          "after_json": "{\"account_id\":15,\"amount\":\"139.59\",\"country\":\"PT\",\"currency\":\"EUR\",\"mcc\":\"5411\",\"merchant\":\"Pingo Doce\",\"status\":\"AUTHORISED\",\"tx_id\":909,\"tx_ts\":\"2026-10-01T13:05:47\"}"
         },
         {
-          "event_id": "1790fe66e7b4c21aaa906199224a92bcb21b0462c6c34340748c31d13448d3b4",
+          "event_id": "b7e042dfcf0b5cac1d1dc9ef82415fe3a37667e374a78379204700976e5b0ea4",
           "op": "c",
           "source_system": "sqlserver",
           "source_table": "dbo.card_transactions",
-          "source_position": "0x0000002e000007f00040:0x0000002e000007f0003c",
-          "source_commit_ts": "2026-10-01 13:57:02.347",
+          "source_position": "0x0000002e000008c00040:0x0000002e000008c0003c",
+          "source_commit_ts": "2026-10-01 14:43:00.33",
           "kafka_topic": "banking.cdc.cards.card_transactions",
           "kafka_partition": 1,
           "kafka_offset": 596,
@@ -1155,8 +1214,8 @@
       "alert_id": "00c12e2a960efb4c7fdd25dc3624d0de91b1881140c39fc1a5676afb876270c1",
       "rule": "structuring",
       "account_id": 49,
-      "alert_created_at": "2026-10-01 13:57:31.409963",
-      "latency_seconds": 29.06,
+      "alert_created_at": "2026-10-01 14:43:31.503693",
+      "latency_seconds": 31.17,
       "events": [
         {
           "event_id": "0a8b7773e8154649b324eb2c73e9dd1cdf8567182169a7993f13c795e739266b",
@@ -1164,7 +1223,7 @@
           "source_system": "azure_fileshare",
           "source_table": "partner_transfers",
           "source_position": "sepa_partner_20261001_1300.csv:8@5604b4be0a4a",
-          "source_commit_ts": "2026-10-01 13:57:02.354754",
+          "source_commit_ts": "2026-10-01 14:43:00.33659",
           "kafka_topic": "banking.cdc.partner.transfers",
           "kafka_partition": 1,
           "kafka_offset": 46,
@@ -1177,7 +1236,7 @@
           "source_system": "azure_fileshare",
           "source_table": "partner_transfers",
           "source_position": "sepa_partner_20261001_1300.csv:17@5604b4be0a4a",
-          "source_commit_ts": "2026-10-01 13:57:02.354754",
+          "source_commit_ts": "2026-10-01 14:43:00.33659",
           "kafka_topic": "banking.cdc.partner.transfers",
           "kafka_partition": 0,
           "kafka_offset": 52,
@@ -1190,7 +1249,7 @@
           "source_system": "azure_fileshare",
           "source_table": "partner_transfers",
           "source_position": "sepa_partner_20261001_1300.csv:25@5604b4be0a4a",
-          "source_commit_ts": "2026-10-01 13:57:02.354754",
+          "source_commit_ts": "2026-10-01 14:43:00.33659",
           "kafka_topic": "banking.cdc.partner.transfers",
           "kafka_partition": 2,
           "kafka_offset": 49,
@@ -1203,7 +1262,7 @@
           "source_system": "azure_fileshare",
           "source_table": "partner_transfers",
           "source_position": "sepa_partner_20261001_1300.csv:28@5604b4be0a4a",
-          "source_commit_ts": "2026-10-01 13:57:02.354754",
+          "source_commit_ts": "2026-10-01 14:43:00.33659",
           "kafka_topic": "banking.cdc.partner.transfers",
           "kafka_partition": 1,
           "kafka_offset": 54,
@@ -1212,5 +1271,18 @@
         }
       ]
     }
-  ]
+  ],
+  "alerts_service": {
+    "published": 23,
+    "received": 23,
+    "consumer_counts": {
+      "stored": 23,
+      "duplicate": 0,
+      "rejected": 0
+    },
+    "queue_latency_seconds": {
+      "p50": 38.11,
+      "p95": 39.79
+    }
+  }
 }

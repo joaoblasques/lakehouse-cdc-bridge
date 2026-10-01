@@ -35,6 +35,13 @@
     the tiles above.</p>
   <div class="card"><div id="latency-chart"></div><div class="legend" id="latency-legend"></div></div>
 
+  <h2 id="queue">Did every alert reach the analysts?</h2>
+  <p class="plain"><b>In one sentence:</b> <span id="queue-sentence">–</span></p>
+  <p class="muted">During the run, the fraud-alert service's consumer read
+    <code>banking.fraud.alerts</code> as it would in production. The time is measured from the
+    source database saving the last payment behind an alert to the alert being saved in the
+    analysts' queue (<a href="architecture.html#service">how it works</a>).</p>
+
   <h2 id="detection">Are the alerts right?</h2>
   <p class="plain"><b>In one sentence:</b> every planted fraud case was caught; two rules raised no
     false alarms, and the third raises some on customers who are travelling.</p>

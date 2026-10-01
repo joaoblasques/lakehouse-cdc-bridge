@@ -106,6 +106,21 @@
       in between.</p>
   </details>
 
+  <details class="adr">
+    <summary>ADR-009 · Alerts leave Gold through an outbox and a Kafka topic</summary>
+    <p><b>Situation.</b> Analysts need new alerts in seconds, in a tool they can act on. Letting
+      the alert tool query Delta would tie it to the data platform, which is the coupling this
+      project removes for the source systems.</p>
+    <p><b>Decision.</b> Gold publishes new alerts to <code>banking.fraud.alerts</code> with the
+      <span data-term="outbox">outbox pattern</span> (a "published" column, set only after Kafka
+      confirms). A separate FastAPI service consumes the topic, commits each offset only after
+      storing the alert, and stores by alert ID.</p>
+    <p><b>Cost.</b> Delivery is at-least-once, so the service must ignore repeats, which it does.
+      The service's SQLite store suits one instance; more instances need a shared database. The
+      analysts' decisions stay in the service for now; sending them back as events, to measure
+      precision on real cases, is the obvious next step.</p>
+  </details>
+
   <h2>What comes next</h2>
   <div class="table-wrap">
     <table>
@@ -114,7 +129,7 @@
         <tr><td><span class="tag blue">done</span></td><td>SQL Server and file-share capture, Kafka, Delta layers, reconciliation, fraud rules, automated checks</td><td>The full loop, measured end to end</td></tr>
         <tr><td><span class="tag blue">done</span></td><td>DB2 connector: timestamp bookmark plus periodic comparison (<span data-term="query-cdc">query-based CDC</span>)</td><td>The mainframe case: capturing changes without access to the log</td></tr>
         <tr><td><span class="tag">next</span></td><td>SingleStore connector</td><td>The fourth source system</td></tr>
-        <tr><td><span class="tag">next</span></td><td>Fraud-alert <span data-term="microservice">microservice</span> reading from Kafka</td><td>Shows another application using the same events</td></tr>
+        <tr><td><span class="tag blue">done</span></td><td>Fraud-alert <span data-term="microservice">microservice</span> reading from Kafka</td><td>Shows another application using the same events</td></tr>
         <tr><td><span class="tag">next</span></td><td>Schema Registry; full history of account changes (<span data-term="scd2">SCD2</span>)</td><td>Safer format changes; "what did this account look like on date X?"</td></tr>
         <tr><td><span class="tag">later</span></td><td>AI assistant that drafts the configuration for a new table from its definition, for a person to approve</td><td>Uses AI to speed up the platform team's own work</td></tr>
         <tr><td><span class="tag">later</span></td><td>Machine-learning fraud model (<span data-term="mlflow">MLflow</span>)</td><td>Compared with the rules using the same precision and recall scoring</td></tr>

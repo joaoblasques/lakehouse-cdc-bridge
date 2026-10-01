@@ -89,6 +89,7 @@
     <div class="card"><h3>Storage</h3><p class="muted"><span data-term="delta">Delta Lake</span> tables in three <span data-term="medallion">layers</span>: raw events, current records, and fraud alerts, plus an <span data-term="audit">audit trail</span>.</p></div>
     <div class="card"><h3>Scheduling</h3><p class="muted">One <span data-term="workflows">Databricks Workflows job</span>, defined in an <span data-term="bundle">Asset Bundle</span> so the whole setup is deployed with one command.</p></div>
     <div class="card"><h3>Processing</h3><p class="muted"><span data-term="spark">Apache Spark</span> reads new events incrementally (<span data-term="streaming">Structured Streaming</span>) and runs the fraud rules in SQL.</p></div>
+    <div class="card"><h3>Alert service</h3><p class="muted">A <span data-term="fastapi">FastAPI</span> <span data-term="microservice">microservice</span> reads new alerts from Kafka and gives analysts a queue to confirm or dismiss them.</p></div>
     <div class="card"><h3>Quality</h3><p class="muted">Automated tests and checks on every change (<span data-term="ci">CI</span>), including one against a real SQL Server.</p></div>
   </div>
 

@@ -29,6 +29,13 @@ function render(m) {
   ].map(([v, l]) => `<div class="card stat"><div class="value">${v}</div><div class="label">${l}</div></div>`).join("");
 
   document.getElementById("latency-p50").textContent = fmt.secs(m.latency_seconds.p50);
+  const q = m.alerts_service;
+  document.getElementById("queue-sentence").textContent = q
+    ? `${q.received} of ${q.published} published alerts arrived in the analysts' queue, typically ` +
+      `${fmt.secs(q.queue_latency_seconds.p50)} after the payment was saved ` +
+      `(slowest 5%: ${fmt.secs(q.queue_latency_seconds.p95)}). Repeats ignored: ` +
+      `${q.consumer_counts.duplicate}; bad messages: ${q.consumer_counts.rejected}.`
+    : "this run did not include the alert service.";
   const rules = Object.keys(m.detection);
   const lat = m.latency_seconds.by_alert || [];
   if (lat.length) dotStrip(document.getElementById("latency-chart"), document.getElementById("latency-legend"), lat, rules);

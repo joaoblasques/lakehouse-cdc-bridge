@@ -36,8 +36,11 @@ os.environ.setdefault("DB2_CORE_PORT", "50000")
 os.environ.setdefault("DB2_CORE_USER", "db2inst1")
 os.environ.setdefault("DB2_CORE_PASSWORD", os.environ.get("DB2_PASSWORD", "LocalDev!Passw0rd"))
 
+from banking_cdc.alerts_service.consumer import AlertConsumer  # noqa: E402
+from banking_cdc.alerts_service.store import AlertStore  # noqa: E402
 from banking_cdc.evaluate import percentile, score  # noqa: E402
 from banking_cdc.generator import BankSimulator  # noqa: E402
+from banking_cdc.pipeline.alerts import publish_pending_alerts  # noqa: E402
 from banking_cdc.pipeline.capture import run_capture  # noqa: E402
 from banking_cdc.pipeline.config import (  # noqa: E402
     build_adapter,
@@ -143,7 +146,16 @@ def main() -> None:
     topics = {n: topic_map(s) for n, s in cfg["sources"].items()}
     all_topics = sorted({t for m in topics.values() for t in m.values()})
     kopts = spark_kafka_options(kafka_conf())
-    ensure_topics(kafka_conf(), [*all_topics, cfg["kafka"]["dlq_topic"]])
+    alerts_topic = cfg["kafka"]["alerts_topic"]
+    ensure_topics(kafka_conf(), [*all_topics, cfg["kafka"]["dlq_topic"], alerts_topic])
+    # The fraud-alert service's consumer runs alongside, as it would in production.
+    LOCAL.mkdir(parents=True, exist_ok=True)
+    (LOCAL / "alerts.db").unlink(missing_ok=True)
+    alert_store = AlertStore(LOCAL / "alerts.db")
+    alert_consumer = AlertConsumer(
+        kafka_conf() | {"group.id": f"alerts-api-run-{int(time.time())}"}, alerts_topic, alert_store
+    )
+    alert_consumer.start()
     share_dir = Path(os.environ["FILESHARE_PARTNER_DIR"])
 
     sim = BankSimulator(
@@ -184,6 +196,9 @@ def main() -> None:
                 run_silver, spark, NS, cfg, str(LOCAL / "checkpoints" / "silver")
             )
             _, steps["gold"] = timed(run_gold, spark, NS)
+            _, steps["publish_alerts"] = timed(
+                publish_pending_alerts, spark, NS, producer, alerts_topic
+            )
             stats = {n: a.source_stats() for n, a in adapters.items()}
             checks, steps["reconcile"] = timed(run_reconciliation, spark, NS, cfg, stats)
             rounds.append(
@@ -215,6 +230,16 @@ def main() -> None:
             )
 
     alerts = spark.table(f"{NS}.gold_fraud_alerts").collect()
+    published = sum(a.published_at is not None for a in alerts)
+    deadline = time.time() + 60
+    while alert_store.stats()["total"] < published and time.time() < deadline:
+        time.sleep(0.5)
+    alert_consumer.stop()
+    queue_latency = []
+    for a in alert_store.list(limit=10_000):
+        received = datetime.fromisoformat(a["received_at"])
+        committed = datetime.fromisoformat(a["last_source_commit_ts"]).replace(tzinfo=UTC)
+        queue_latency.append((received - committed).total_seconds())
     alert_dicts = [
         {"rule": a.rule, "account_id": a.account_id, "evidence_keys": list(a.evidence_keys)}
         for a in alerts
@@ -292,6 +317,15 @@ def main() -> None:
             ],
         },
         "lineage_samples": samples,
+        "alerts_service": {
+            "published": published,
+            "received": alert_store.stats()["total"],
+            "consumer_counts": alert_consumer.counts,
+            "queue_latency_seconds": {
+                "p50": percentile(queue_latency, 0.5),
+                "p95": percentile(queue_latency, 0.95),
+            },
+        },
     }
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -41,8 +41,9 @@
     <a href="#s7">7 · Start DB2 (optional)</a>
     <a href="#s8">8 · Run the pipeline</a>
     <a href="#s9">9 · See the results</a>
-    <a href="#s10">10 · Stop and remove</a>
-    <a href="#s11">11 · Troubleshooting</a>
+    <a href="#s10">10 · Start the alert service (optional)</a>
+    <a href="#s11">11 · Stop and remove</a>
+    <a href="#s12">12 · Troubleshooting</a>
   </nav>
 
   <h2 id="s1">1 · Make sure that your computer agrees with the requirements</h2>
@@ -54,7 +55,7 @@
         <tr><td>Processor type</td><td>x86-64 (Intel or AMD). See the caution below for Apple silicon.</td><td>x86-64</td></tr>
         <tr><td>Free memory for Docker</td><td>8 GB</td><td>12 GB</td></tr>
         <tr><td>Free disk space</td><td>6 GB</td><td>11 GB</td></tr>
-        <tr><td>Free network ports</td><td>1433, 9092, 8000</td><td>also 50000</td></tr>
+        <tr><td>Free network ports</td><td>1433, 9092, 8000 (8080 for the alert service)</td><td>also 50000</td></tr>
         <tr><td>Internet connection</td><td colspan="2">Necessary for the first installation only</td></tr>
       </tbody>
     </table>
@@ -192,12 +193,35 @@
     <li>Push <kbd>Ctrl</kbd> + <kbd>C</kbd> in the terminal to stop the web server.</li>
   </ol>
 
-  <h2 id="s10">10 · Stop and remove the services</h2>
+  <h2 id="s10">10 · Start the fraud-alert service (optional)</h2>
+  <p>The fraud-alert service reads the alerts from Kafka and gives an analyst queue. It operates
+    in its own container.</p>
+  <p class="callout note"><span class="tag blue">NOTE</span> Do step 8 before this step. If you do
+    not, the queue is empty.</p>
+  <ol class="steps">
+    <li>Build and start the service:
+<pre><code>docker compose --profile api up -d --build alerts-api</code></pre></li>
+    <li>Make sure that the service operates:
+<pre><code>curl http://localhost:8080/health</code></pre>
+      <b>Result:</b> The response shows <code>"status":"ok"</code> and
+      <code>"consumer_running":true</code>.</li>
+    <li>Open <a href="http://localhost:8080/docs">http://localhost:8080/docs</a> in your web
+      browser.
+      <b>Result:</b> The page shows the API operations. You can try each operation on this
+      page.</li>
+    <li>To see the open alerts, use this command:
+<pre><code>curl "http://localhost:8080/alerts?status=OPEN"</code></pre></li>
+  </ol>
+  <p class="callout note"><span class="tag blue">NOTE</span> If your network uses a proxy that
+    inspects HTTPS, the build cannot download packages. Give the proxy certificate to the build:
+    <code>docker build --secret id=ca,src=&lt;certificate file&gt; .</code></p>
+
+  <h2 id="s11">11 · Stop and remove the services</h2>
   <ol class="steps">
     <li>To stop the services and keep their data, use this command:
-<pre><code>docker compose --profile db2 stop</code></pre></li>
+<pre><code>docker compose --profile db2 --profile api stop</code></pre></li>
     <li>To remove the services and their data, use this command:
-<pre><code>docker compose --profile db2 down -v</code></pre></li>
+<pre><code>docker compose --profile db2 --profile api down -v</code></pre></li>
     <li>To remove the local Delta tables, delete the <code>.local</code> folder:
 <pre><code>rm -rf .local</code></pre></li>
   </ol>
@@ -205,7 +229,7 @@
     computer. To remove them and recover the disk space, use <code>docker image rm</code> with the
     image names in <code>docker-compose.yml</code>.</p>
 
-  <h2 id="s11">11 · Troubleshooting</h2>
+  <h2 id="s12">12 · Troubleshooting</h2>
   <div class="table-wrap">
     <table>
       <thead><tr><th>Problem</th><th>Possible cause</th><th>Action</th></tr></thead>
@@ -216,6 +240,7 @@
         <tr><td>Tests stop at "Ivy" or "resolving dependencies"</td><td>Spark cannot download its Java libraries</td><td>Make sure that the internet connection operates. Then run the tests again.</td></tr>
         <tr><td>The pipeline shows "DB2 not reachable"</td><td>DB2 is not started or is not ready</td><td>This is not an error: the pipeline continues without DB2. To use DB2, do step 7.</td></tr>
         <tr><td>The pipeline shows "Failed to acquire idempotence PID" one time</td><td>Kafka is not fully ready yet</td><td>No action is necessary. The pipeline tries again automatically.</td></tr>
+        <tr><td><code>/health</code> shows <code>"consumer_running":false</code></td><td>The service cannot connect to Kafka</td><td>Make sure that Kafka operates (step 5). Then restart the service: <code>docker compose --profile api restart alerts-api</code>.</td></tr>
         <tr><td>The pipeline stops with "ReconciliationError"</td><td>The data in Delta does not agree with the source data</td><td>Run the pipeline again with <code>--fresh</code>. If the error stays, send the full error text in a GitHub issue.</td></tr>
       </tbody>
     </table>
