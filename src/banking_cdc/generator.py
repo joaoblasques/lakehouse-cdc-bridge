@@ -84,6 +84,7 @@ class BankSimulator:
         self.balances: dict[int, Decimal] = {}
         self.open_auths: dict[int, dict] = {}  # tx_id -> row still AUTHORISED
         self.deleted_tx_status: dict[int, str] = {}
+        self.trips: dict[int, tuple[str, int]] = {}  # account_id -> (country, hours left)
         self._next_tx = 1
         self._next_transfer = 1
 
@@ -133,6 +134,7 @@ class BankSimulator:
         batch = Batch()
         window_start = self.clock
         self._settle_and_expire(batch)
+        self._update_trips()
         for _ in range(self.tx_per_round):
             self._card_tx(batch, self._pick_current(), self._ts_in_hour(window_start))
         if self.round_no == 1 or self.rng.random() < 0.6:
@@ -143,6 +145,19 @@ class BankSimulator:
         self._partner_file(batch, window_start)
         self.clock = window_start + timedelta(hours=1)
         return batch
+
+    def _update_trips(self) -> None:
+        """Cardholders travel: for a few hours all their card use is in one foreign country.
+
+        Modelling trips (instead of a random country per transaction) keeps legitimate
+        country changes rare, as they are in real card data.
+        """
+        self.trips = {a: (c, n - 1) for a, (c, n) in self.trips.items() if n > 1}
+        current = [a for a in self.accounts if a["account_type"] == "CURRENT"]
+        for account in self.rng.sample(current, max(1, len(current) // 50)):
+            self.trips.setdefault(
+                account["account_id"], (self.rng.choice(FOREIGN), self.rng.randint(2, 6))
+            )
 
     def _pick_current(self) -> dict:
         return self.rng.choice([a for a in self.accounts if a["account_type"] == "CURRENT"])
@@ -160,7 +175,7 @@ class BankSimulator:
     ) -> dict:
         merchant, mcc = self.rng.choice(MERCHANTS)
         if country is None:
-            country = "PT" if self.rng.random() < 0.95 else self.rng.choice(FOREIGN)
+            country = self.trips.get(account["account_id"], ("PT", 0))[0]
         if amount is None:
             amount = Decimal(self.rng.randint(150, 25_000)) / 100
         row = {
@@ -305,6 +320,16 @@ class BankSimulator:
                     "transfer_ids": [r["transfer_id"] for r in planted],
                 }
             )
+        if self.rng.random() < 0.3:
+            # Partner sent a European-formatted amount: must land in the DLQ, not be dropped.
+            bad = self._transfer(
+                window_start,
+                self.rng.choice(self.accounts)["iban"],
+                rows[0]["creditor_iban"],
+                Decimal("1"),
+            )
+            bad["amount"] = "1.250,00"
+            rows.append(bad)
         self.rng.shuffle(rows)
         out = io.StringIO()
         writer = csv.DictWriter(out, fieldnames=FILE_COLUMNS, lineterminator="\n")

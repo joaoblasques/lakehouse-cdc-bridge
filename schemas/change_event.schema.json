@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/joaoblasques/Banking_cdc/schemas/change_event.schema.json",
+  "title": "ChangeEvent",
+  "description": "Standard change event emitted by every Banking CDC source adapter (schema_version 1).",
+  "type": "object",
+  "required": ["event_id", "op", "key", "before", "after", "source", "captured_at", "trace_id",
+               "schema_version", "payload_hash"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {"type": "string", "pattern": "^[0-9a-f]{64}$",
+                 "description": "sha256(system|table|key|position); deterministic so replays dedupe"},
+    "op": {"enum": ["c", "u", "d", "r"]},
+    "key": {"type": "object", "minProperties": 1},
+    "before": {"type": ["object", "null"]},
+    "after": {"type": ["object", "null"]},
+    "source": {
+      "type": "object",
+      "required": ["system", "database", "table", "position"],
+      "additionalProperties": false,
+      "properties": {
+        "system": {"type": "string"},
+        "database": {"type": "string"},
+        "table": {"type": "string"},
+        "position": {"type": "string", "description": "LSN:seqval or file:line@sha256"},
+        "commit_ts": {"type": ["string", "null"]},
+        "sequence": {"type": ["string", "null"], "description": "sortable order within a table"}
+      }
+    },
+    "captured_at": {"type": "string"},
+    "trace_id": {"type": "string"},
+    "schema_version": {"const": 1},
+    "payload_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "allOf": [
+    {"if": {"properties": {"op": {"const": "c"}}}, "then": {"properties": {"after": {"type": "object"}}}},
+    {"if": {"properties": {"op": {"const": "d"}}}, "then": {"properties": {"before": {"type": "object"}, "after": {"type": "null"}}}}
+  ]
+}

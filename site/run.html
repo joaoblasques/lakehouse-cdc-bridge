@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Run It · Banking CDC</title>
+  <meta name="description" content="Run the full pipeline locally with Docker and Spark, or deploy it to Databricks with the Asset Bundle.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="run">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Run it</div>
+    <h1>Reproduce the results</h1>
+    <p class="lead">Locally in about 15 minutes with Docker, Java 17+ and
+      <a href="https://docs.astral.sh/uv/">uv</a>. No cloud account needed.</p>
+  </section>
+
+  <h2>Local</h2>
+  <ol class="steps">
+    <li><b>Clone and install</b>
+<pre><code>git clone https://github.com/joaoblasques/Banking_cdc && cd Banking_cdc
+uv sync --all-extras</code></pre></li>
+    <li><b>Start SQL Server (with Agent, for CDC) and Confluent Kafka</b>
+<pre><code>docker compose up -d --wait</code></pre></li>
+    <li><b>Run the tests</b>: unit and Spark by default, then the SQL Server integration test
+<pre><code>uv run pytest
+uv run pytest -m integration</code></pre></li>
+    <li><b>Run the pipeline end to end</b>: initial load plus 6 simulated hours. It writes
+      <code>site/data/run_metrics.json</code>
+<pre><code>uv run python scripts/run_local.py --fresh</code></pre></li>
+    <li><b>Open the site</b>
+<pre><code>python -m http.server -d site 8000   # http://localhost:8000</code></pre></li>
+  </ol>
+
+  <h2>Databricks + Confluent Cloud</h2>
+  <ol class="steps">
+    <li><b>Secrets</b>: one scope, key names follow <code>conf/sources.yml</code>
+<pre><code>databricks secrets create-scope banking-cdc
+databricks secrets put-secret banking-cdc mssql-cards-host      # Azure SQL server
+databricks secrets put-secret banking-cdc mssql-cards-port
+databricks secrets put-secret banking-cdc mssql-cards-user
+databricks secrets put-secret banking-cdc mssql-cards-password
+databricks secrets put-secret banking-cdc fileshare-partner-connection-string
+databricks secrets put-secret banking-cdc kafka-bootstrap        # Confluent Cloud
+databricks secrets put-secret banking-cdc kafka-api-key
+databricks secrets put-secret banking-cdc kafka-api-secret</code></pre></li>
+    <li><b>Enable CDC on the Azure SQL database</b>: run
+      <code>sql/sqlserver/001_cards_schema.sql</code> (Azure SQL Database runs its own
+      capture scheduler, so no Agent is needed).</li>
+    <li><b>Deploy and run</b>
+<pre><code>databricks bundle deploy -t dev
+databricks bundle run banking_cdc</code></pre></li>
+  </ol>
+  <div class="notice">The job ships with its schedule <b>paused</b>. Unpause it on purpose: a
+    five-minute schedule on a trial account uses up its credit faster than you would expect.</div>
+
+  <h2>Repository map</h2>
+<pre><code>conf/sources.yml            sources, tables, keys, topics, Silver schemas
+src/banking_cdc/
+  envelope.py               the change event (deterministic event_id)
+  generator.py              synthetic Banco Atlântico + planted fraud
+  sources/sqlserver.py      log-based CDC (LSN watermark, gap detection)
+  sources/fileshare.py      file-arrival CDC (etag + sha256 manifest, DLQ)
+  pipeline/                 capture, Bronze/Silver, reconciliation, Gold rules
+  evaluate.py               precision / recall against ground truth
+notebooks/                  thin Databricks tasks over the package
+databricks.yml              Asset Bundle: Workflows job with for-each capture
+scripts/run_local.py        end-to-end run → site/data/run_metrics.json
+schemas/                    event JSON Schema
+site/                       this website (static HTML/CSS/JS)</code></pre>
+</main>
+<script src="assets/app.js"></script>
+</body>
+</html>

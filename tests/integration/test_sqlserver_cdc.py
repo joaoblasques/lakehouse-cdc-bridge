@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 import pytest
 
 from banking_cdc.generator import BankSimulator
-from banking_cdc.seed import apply_batch, apply_schema, connect
+from banking_cdc.seed import apply_batch, apply_schema, connect, wait_for_capture
 from banking_cdc.sources.sqlserver import SqlServerCdcAdapter, TableSpec
 
 pytestmark = pytest.mark.integration
@@ -25,6 +25,9 @@ def _reset():
         for t in ("card_transactions", "accounts", "customers"):
             cur.execute(f"DELETE FROM dbo.{t}")
         conn.commit()
+        # The capture job reads the log asynchronously: let it catch up with the deletes above
+        # before the test takes its baseline, or they leak into the counted events.
+        wait_for_capture(conn, beat=int(time.time() * 1000) % 2_000_000_000)
 
 
 def _capture_until(adapter, watermark, predicate, timeout=60):

@@ -85,3 +85,27 @@ def test_partner_file_is_csv_with_structuring_pattern():
     flagged = [r for r in rows if r["transfer_id"] in label["transfer_ids"]]
     assert len(flagged) >= 3
     assert all(Decimal("9000") <= Decimal(r["amount"]) < Decimal("10000") for r in flagged)
+
+
+def test_some_partner_files_carry_a_malformed_amount():
+    _, batches = _round(n=6)
+    amounts = [
+        r["amount"]
+        for b in batches
+        for _, text in b.files
+        for r in csv.DictReader(io.StringIO(text))
+    ]
+    assert "1.250,00" in amounts
+
+
+def test_travellers_use_one_foreign_country_for_the_whole_trip():
+    sim, batches = _round(n=5)
+    planted = {t for b in batches for g in b.ground_truth for t in g.get("tx_ids", [])}
+    countries: dict[int, set[str]] = {}
+    for b in batches:
+        for table, op, row in b.sql_ops:
+            if table == "card_transactions" and op == "insert" and row["tx_id"] not in planted:
+                countries.setdefault(row["account_id"], set()).add(row["country"])
+    foreign = [c for c in countries.values() if c - {"PT"}]
+    assert foreign, "some cardholders should travel"
+    assert all(len(c - {"PT"}) == 1 for c in foreign)

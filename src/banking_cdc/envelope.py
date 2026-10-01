@@ -22,6 +22,10 @@ class SourceInfo:
     table: str
     position: str  # LSN:seqval for SQL Server, path:line@sha256 for files
     commit_ts: str | None = None
+    sequence: str | None = None  # sortable order within a table; Silver applies the highest
+
+    def order_key(self) -> str:
+        return self.sequence or self.position
 
 
 @dataclass(frozen=True)

@@ -1,0 +1,71 @@
+# Databricks Asset Bundle: `databricks bundle deploy -t dev` then `databricks bundle run banking_cdc`.
+bundle:
+  name: banking_cdc
+
+artifacts:
+  banking_cdc_wheel:
+    type: whl
+    build: uv build --wheel
+    path: .
+
+variables:
+  catalog: {default: main}
+  schema: {default: banking_cdc}
+  secret_scope: {default: banking-cdc}
+
+resources:
+  jobs:
+    banking_cdc:
+      name: banking-cdc-${bundle.target}
+      schedule:
+        quartz_cron_expression: "0 */5 * * * ?"   # every 5 minutes
+        timezone_id: Europe/Lisbon
+        pause_status: PAUSED                       # unpause deliberately; free credit is finite
+      max_concurrent_runs: 1                       # watermarks assume one writer per source
+      parameters:
+        - {name: catalog, default: "${var.catalog}"}
+        - {name: schema, default: "${var.schema}"}
+        - {name: secret_scope, default: "${var.secret_scope}"}
+        - {name: checkpoint_root, default: "/Volumes/${var.catalog}/${var.schema}/checkpoints"}
+      environments:
+        - environment_key: default
+          spec:
+            client: "3"
+            dependencies:
+              - ./dist/*.whl
+      tasks:
+        - task_key: capture
+          for_each_task:
+            inputs: '["sqlserver_cards", "partner_fileshare"]'
+            concurrency: 2
+            task:
+              task_key: capture_source
+              environment_key: default
+              notebook_task:
+                notebook_path: ./notebooks/01_cdc_capture.py
+                base_parameters: {source_name: "{{input}}"}
+        - task_key: bronze
+          depends_on: [{task_key: capture}]
+          environment_key: default
+          notebook_task: {notebook_path: ./notebooks/02_bronze_ingest.py}
+        - task_key: silver
+          depends_on: [{task_key: bronze}]
+          environment_key: default
+          notebook_task: {notebook_path: ./notebooks/03_silver_apply.py}
+        - task_key: gold
+          depends_on: [{task_key: silver}]
+          environment_key: default
+          notebook_task: {notebook_path: ./notebooks/05_gold_fraud_alerts.py}
+        - task_key: reconcile
+          depends_on: [{task_key: silver}]
+          environment_key: default
+          notebook_task: {notebook_path: ./notebooks/04_reconcile.py}
+
+targets:
+  dev:
+    mode: development
+    default: true
+  prod:
+    mode: production
+    variables:
+      schema: banking_cdc_prod

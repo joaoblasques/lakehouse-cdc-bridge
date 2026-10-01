@@ -65,3 +65,24 @@ def write_files(share_dir: Path, batch: Batch) -> None:
     share_dir.mkdir(parents=True, exist_ok=True)
     for name, text in batch.files:
         (share_dir / name).write_text(text)
+
+
+def wait_for_capture(conn: Any, beat: int, timeout: float = 120.0) -> float:
+    """Write a heartbeat and block until the CDC capture job has read it. Returns lag seconds."""
+    import time
+
+    cur = conn.cursor()
+    cur.execute(
+        "MERGE dbo.cdc_heartbeat AS t USING (SELECT 1 AS id) AS s ON t.id = s.id "
+        "WHEN MATCHED THEN UPDATE SET beat = %s, beat_at = SYSUTCDATETIME() "
+        "WHEN NOT MATCHED THEN INSERT (id, beat, beat_at) VALUES (1, %s, SYSUTCDATETIME());",
+        (beat, beat),
+    )
+    conn.commit()
+    started = time.monotonic()
+    while time.monotonic() - started < timeout:
+        cur.execute("SELECT COUNT(*) FROM cdc.dbo_cdc_heartbeat_CT WHERE beat = %s", (beat,))
+        if cur.fetchone()[0]:
+            return time.monotonic() - started
+        time.sleep(0.5)
+    raise TimeoutError(f"CDC capture job did not pick up heartbeat {beat} in {timeout}s")

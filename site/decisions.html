@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Decisions · Banking CDC</title>
+  <meta name="description" content="Architecture decision records and the roadmap: why capture runs in Databricks, delivery guarantees, what is out of scope and what comes next.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="decisions">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Decisions</div>
+    <h1>Architecture decision records</h1>
+    <p class="lead">The choices that shaped the project: what was considered, what was picked,
+      and what it costs.</p>
+  </section>
+
+  <details class="adr" open>
+    <summary>ADR-001 · Capture runs in Databricks notebooks, not Debezium</summary>
+    <p><b>Context.</b> The textbook setup is Debezium on Kafka Connect, writing to Kafka, with
+      Databricks as a consumer. The target platform does the reverse: Databricks applications
+      monitor the sources and publish events to Confluent.</p>
+    <p><b>Decision.</b> Capture is Python adapters run as Databricks notebook tasks, with
+      watermarks and audit in Delta.</p>
+    <p><b>Consequences.</b> One platform to operate and one place for lineage and access
+      control (Unity Catalog). It also covers sources Debezium can't, such as an SMB file
+      share. The cost is polling latency (the schedule interval) instead of streaming from the
+      log, and the capture code is ours to maintain.</p>
+  </details>
+
+  <details class="adr">
+    <summary>ADR-002 · At-least-once on the wire, exactly-once in Delta</summary>
+    <p><b>Decision.</b> No Kafka transactions. The producer is idempotent
+      (<code>enable.idempotence</code>, <code>acks=all</code>), the watermark is committed
+      only after a flush succeeds, event IDs are deterministic, Bronze deduplicates on
+      <code>event_id</code>, and Silver ignores anything not newer than what it already has.</p>
+    <p><b>Why.</b> Kafka transactions would not cover the Delta writes anyway. Deterministic
+      IDs make every step safe to retry, which is simpler to reason about and to test.</p>
+    <p><b>Cost.</b> A non-Delta consumer must also deduplicate on <code>event_id</code>. That
+      is documented in the event contract.</p>
+  </details>
+
+  <details class="adr">
+    <summary>ADR-003 · File-share CDC with a manifest, not Auto Loader</summary>
+    <p>Auto Loader reads ADLS, Blob storage and Unity Catalog volumes, not Azure Files. A copy
+      step (Azure Files → ADLS) followed by Auto Loader would work, but it adds a hop and a
+      second place where files can go missing. The adapter lists the share directly and keeps
+      <code>(name, etag, sha256)</code> per version, so a re-sent file is detected as an
+      update.</p>
+  </details>
+
+  <details class="adr">
+    <summary>ADR-004 · Soft deletes in Silver</summary>
+    <p>Silver keeps deleted rows with <code>_is_deleted = true</code>. That prevents a late,
+      older insert from bringing a deleted row back, and it keeps evidence for the fraud
+      rules: an expired card authorisation is still an attempt. Consumers that want current
+      state filter on <code>NOT _is_deleted</code>, as reconciliation does.</p>
+  </details>
+
+  <details class="adr">
+    <summary>ADR-005 · JSON events with a published JSON Schema; Schema Registry next</summary>
+    <p>The MVP publishes JSON validated against <code>schemas/change_event.schema.json</code>
+      in tests. The production step is registering it in Confluent Schema Registry with
+      BACKWARD compatibility and serialising through it. The envelope already carries
+      <code>schema_version</code> and an event header.</p>
+  </details>
+
+  <details class="adr">
+    <summary>ADR-006 · Topics are provisioned, not auto-created</summary>
+    <p>Auto-create is disabled. <code>ensure_topics</code> creates missing topics (3
+      partitions; replication 3 on Confluent Cloud) before Bronze subscribes. An empty table
+      can't make a pipeline fail, and topic naming stays a decision someone made.</p>
+  </details>
+
+  <details class="adr">
+    <summary>ADR-007 · Develop locally, run the cloud demo in short bursts</summary>
+    <p>Databricks Free Edition limits outbound internet until you verify identity. Confluent
+      Cloud's sign-up credit expires after about 30 days. Everything is therefore built and
+      tested against Docker (SQL Server 2022, Confluent <code>cp-kafka</code>) with local
+      Spark and Delta, then deployed with the Asset Bundle for a short cloud run.</p>
+  </details>
+
+  <h2>Roadmap</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Phase</th><th>Item</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag blue">done</span></td><td>SQL Server log CDC, File Share CDC, Kafka, Delta medallion, reconciliation, fraud rules, CI</td><td>The core loop, measured end to end</td></tr>
+        <tr><td><span class="tag">2</span></td><td>DB2 adapter: watermark + snapshot hash diff (Docker Db2 Community)</td><td>The mainframe case: CDC without log access</td></tr>
+        <tr><td><span class="tag">2</span></td><td>SingleStore adapter: watermark + row hash</td><td>Fourth source from the brief</td></tr>
+        <tr><td><span class="tag">2</span></td><td>FastAPI fraud-alert microservice consuming from Kafka</td><td>Shows microservice integration on the same events</td></tr>
+        <tr><td><span class="tag">2</span></td><td>Schema Registry serialisation; SCD2 history for accounts</td><td>Contract evolution; point-in-time questions</td></tr>
+        <tr><td><span class="tag">3</span></td><td>AI source-onboarding assistant: DDL + sample rows → draft <code>sources.yml</code> entry, a human approves</td><td>AI that speeds up the platform team's own work</td></tr>
+        <tr><td><span class="tag">3</span></td><td>MLflow fraud model trained on the labelled synthetic data</td><td>Compare against the rules on the same precision/recall harness</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+</body>
+</html>

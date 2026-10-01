@@ -122,6 +122,7 @@ class FileShareAdapter:
                     table=TABLE,
                     position=position,
                     commit_ts=ref.last_modified,
+                    sequence=f"{ref.last_modified}|{ref.name}|{line_no:09d}",
                 )
                 events.append(
                     make_event(op, source, {"transfer_id": row["transfer_id"]}, None, row, trace_id)

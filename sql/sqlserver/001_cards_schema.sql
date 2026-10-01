@@ -53,3 +53,12 @@ IF NOT EXISTS (SELECT 1 FROM cdc.change_tables WHERE capture_instance = 'dbo_car
     EXEC sys.sp_cdc_enable_table @source_schema = 'dbo', @source_name = 'card_transactions',
          @role_name = NULL, @supports_net_changes = 0;
 GO
+-- Heartbeat: written after each batch; its arrival in the change table proves the capture job
+-- has caught up (also the standard way to monitor CDC capture lag in production).
+IF OBJECT_ID('dbo.cdc_heartbeat') IS NULL
+CREATE TABLE dbo.cdc_heartbeat (id INT NOT NULL PRIMARY KEY, beat INT NOT NULL, beat_at DATETIME2(3) NOT NULL);
+GO
+IF NOT EXISTS (SELECT 1 FROM cdc.change_tables WHERE capture_instance = 'dbo_cdc_heartbeat')
+    EXEC sys.sp_cdc_enable_table @source_schema = 'dbo', @source_name = 'cdc_heartbeat',
+         @role_name = NULL, @supports_net_changes = 0;
+GO

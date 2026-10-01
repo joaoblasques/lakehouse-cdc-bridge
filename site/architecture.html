@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Architecture · Banking CDC</title>
+  <meta name="description" content="How changes flow from the bank's source systems through Databricks capture, Kafka and Delta Lake to fraud alerts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="architecture">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Architecture</div>
+    <h1>Databricks is the CDC engine; Kafka is the contract</h1>
+    <p class="lead">
+      Capture runs <i>inside</i> Databricks: notebooks poll each source, detect what changed,
+      and publish the changes to Kafka. Downstream consumers, including this project's own
+      Delta pipeline, read the topics and never touch the source systems.
+    </p>
+  </section>
+
+  <div class="diagram" role="img" aria-label="Data flow: sources to capture to Kafka to Bronze, Silver, Gold, with control and audit tables">
+    <svg viewBox="0 0 1000 470" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z"/>
+        </marker>
+      </defs>
+
+      <!-- sources -->
+      <text x="20" y="28" font-size="12" font-weight="700" class="sub">SOURCES</text>
+      <rect class="box" x="20" y="42" width="190" height="62" rx="8"/>
+      <text x="34" y="68" font-size="14" font-weight="600">SQL Server · cards</text>
+      <text x="34" y="88" class="sub">native CDC change tables</text>
+      <rect class="box" x="20" y="118" width="190" height="62" rx="8"/>
+      <text x="34" y="144" font-size="14" font-weight="600">Azure File Share</text>
+      <text x="34" y="164" class="sub">partner SEPA CSV files</text>
+      <rect class="box edge-dash" x="20" y="194" width="190" height="52" rx="8" stroke-dasharray="4 3"/>
+      <text x="34" y="216" font-size="13" font-weight="600">DB2 · mainframe</text>
+      <text x="34" y="234" class="sub">phase 2</text>
+      <rect class="box" x="20" y="258" width="190" height="52" rx="8" stroke-dasharray="4 3"/>
+      <text x="34" y="280" font-size="13" font-weight="600">SingleStore · payments</text>
+      <text x="34" y="298" class="sub">phase 2</text>
+
+      <!-- capture -->
+      <text x="270" y="28" font-size="12" font-weight="700" class="sub">DATABRICKS WORKFLOWS</text>
+      <rect class="box-accent" x="270" y="42" width="200" height="200" rx="10"/>
+      <text x="286" y="70" font-size="14" font-weight="700">01 · cdc_capture</text>
+      <text x="286" y="90" class="sub">for-each over conf/sources.yml</text>
+      <text x="286" y="120" font-size="12">1. read watermark</text>
+      <text x="286" y="142" font-size="12">2. adapter.capture()</text>
+      <text x="286" y="164" font-size="12">3. produce + flush</text>
+      <text x="286" y="186" font-size="12">4. write audit rows</text>
+      <text x="286" y="208" font-size="12">5. commit watermark</text>
+      <text x="286" y="230" class="sub">crash before 5 = safe replay</text>
+
+      <!-- kafka -->
+      <text x="530" y="28" font-size="12" font-weight="700" class="sub">KAFKA (CONFLUENT)</text>
+      <rect class="box" x="530" y="42" width="200" height="200" rx="10"/>
+      <text x="546" y="70" font-size="13" font-weight="600">banking.cdc.cards.*</text>
+      <text x="546" y="88" class="sub">customers · accounts · card_tx</text>
+      <text x="546" y="118" font-size="13" font-weight="600">banking.cdc.partner.transfers</text>
+      <text x="546" y="148" font-size="13" font-weight="600">banking.cdc.dlq</text>
+      <text x="546" y="166" class="sub">rejected records, with reason</text>
+      <text x="546" y="198" class="sub">key = table:primary key</text>
+      <text x="546" y="216" class="sub">→ per-row ordering</text>
+      <text x="546" y="234" class="sub">idempotent producer, acks=all</text>
+
+      <!-- consumers -->
+      <rect class="box" x="790" y="42" width="190" height="62" rx="8" stroke-dasharray="4 3"/>
+      <text x="806" y="68" font-size="13" font-weight="600">Other consumers</text>
+      <text x="806" y="88" class="sub">microservices, phase 2</text>
+
+      <!-- medallion -->
+      <text x="530" y="290" font-size="12" font-weight="700" class="sub">DELTA LAKE</text>
+      <rect class="box" x="530" y="302" width="140" height="62" rx="8"/>
+      <text x="544" y="328" font-size="13" font-weight="600">02 · Bronze</text>
+      <text x="544" y="348" class="sub">dedup on event_id</text>
+      <rect class="box" x="690" y="302" width="140" height="62" rx="8"/>
+      <text x="704" y="328" font-size="13" font-weight="600">03 · Silver</text>
+      <text x="704" y="348" class="sub">MERGE, newest wins</text>
+      <rect class="box-accent" x="850" y="302" width="130" height="62" rx="8"/>
+      <text x="864" y="328" font-size="13" font-weight="600">05 · Gold</text>
+      <text x="864" y="348" class="sub">fraud alerts</text>
+      <rect class="box" x="690" y="390" width="290" height="56" rx="8"/>
+      <text x="704" y="414" font-size="13" font-weight="600">04 · Reconcile → dq_reconciliation</text>
+      <text x="704" y="432" class="sub">source ↔ Silver counts, sums · audit ↔ Bronze</text>
+
+      <!-- control -->
+      <rect class="box" x="270" y="302" width="200" height="144" rx="8"/>
+      <text x="286" y="328" font-size="13" font-weight="600">Control and audit (Delta)</text>
+      <text x="286" y="354" font-size="12">cdc_control</text>
+      <text x="286" y="372" class="sub">watermark per source</text>
+      <text x="286" y="396" font-size="12">cdc_event_audit</text>
+      <text x="286" y="414" class="sub">event_id → topic/partition/offset</text>
+      <text x="286" y="436" font-size="12">cdc_file_manifest</text>
+
+      <!-- edges -->
+      <path class="edge" d="M210 73 H270"/>
+      <path class="edge" d="M210 149 H270"/>
+      <path class="edge edge-dash" d="M210 220 H240 V200 H270"/>
+      <path class="edge edge-dash" d="M210 284 H250 V220 H270"/>
+      <path class="edge" d="M470 142 H530"/>
+      <path class="edge" d="M370 242 V302"/>
+      <path class="edge edge-dash" d="M730 73 H790"/>
+      <path class="edge" d="M600 242 V302"/>
+      <path class="edge" d="M670 333 H690"/>
+      <path class="edge" d="M830 333 H850"/>
+      <path class="edge" d="M760 364 V390"/>
+      <path class="edge edge-dash" d="M470 418 H690"/>
+    </svg>
+  </div>
+
+  <h2>Job graph</h2>
+  <p>One Databricks Workflows job, defined in <code>databricks.yml</code> (Asset Bundle) and
+    scheduled every five minutes with <code>max_concurrent_runs: 1</code>, because each
+    watermark assumes a single writer.</p>
+<pre><code>capture (for_each: sqlserver_cards, partner_fileshare)
+   └─ bronze ─ silver ─┬─ gold
+                       └─ reconcile   (fails the run on any mismatch)</code></pre>
+
+  <h2>Design choices that matter</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Deterministic event IDs</h3>
+      <p class="muted"><code>event_id = sha256(system | table | key | source position)</code>.
+        If capture crashes after producing but before committing the watermark, the replay
+        produces the same IDs and Bronze's MERGE drops them. That gives at-least-once delivery
+        on the wire and exactly-once in Delta.</p>
+    </div>
+    <div class="card">
+      <h3>Watermark last</h3>
+      <p class="muted">The order is produce → flush → audit → watermark. If any message is not
+        acknowledged, the run fails and the watermark stays where it was. Data is never
+        skipped; at worst it is sent twice and deduplicated.</p>
+    </div>
+    <div class="card">
+      <h3>Ordering guard in Silver</h3>
+      <p class="muted">Silver updates a row only when the incoming source sequence (SQL Server
+        LSN, or file timestamp plus line) is newer than the stored one. Late or replayed
+        changes cannot roll a balance back.</p>
+    </div>
+    <div class="card">
+      <h3>Soft deletes</h3>
+      <p class="muted">A delete sets <code>_is_deleted</code> instead of removing the row, so
+        an older insert cannot bring it back. It also keeps evidence: an expired card
+        authorisation still counts as an attempt for the fraud rules.</p>
+    </div>
+    <div class="card">
+      <h3>Config-driven sources</h3>
+      <p class="muted"><code>conf/sources.yml</code> lists each source's tables, keys, topic
+        and Silver schema. Adding a table is a config change. A new source type needs one
+        adapter class that implements <code>capture()</code> and <code>source_stats()</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Secrets out of the repo</h3>
+      <p class="muted">Credentials come from a Databricks secret scope on the platform and
+        from environment variables locally, through the same getter. With a Confluent API key
+        present, the Kafka config switches to SASL_SSL automatically.</p>
+    </div>
+  </div>
+
+  <h2>Delta tables</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Table</th><th>Grain</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>cdc_control</code></td><td>source</td><td>watermark (JSON), last trace ID, counts, status</td></tr>
+        <tr><td><code>cdc_event_audit</code></td><td>event</td><td>where each event landed in Kafka, with its source position and payload hash</td></tr>
+        <tr><td><code>cdc_file_manifest</code></td><td>file version</td><td>name, etag, size, sha256, rows, rejected rows</td></tr>
+        <tr><td><code>bronze_change_events</code></td><td>event</td><td>the raw envelope plus Kafka metadata; unique on <code>event_id</code></td></tr>
+        <tr><td><code>silver_*</code></td><td>entity row</td><td>current state with <code>_event_id</code>, <code>_source_sequence</code>, first and last commit time</td></tr>
+        <tr><td><code>dq_reconciliation</code></td><td>check per run</td><td>source value vs target value, PASS/FAIL</td></tr>
+        <tr><td><code>gold_fraud_alerts</code></td><td>alert</td><td>rule, account, evidence keys, latency</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<script src="assets/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Banking CDC</title>
+  <meta name="description" content="Change data capture on Databricks: heterogeneous banking sources into Kafka (Confluent) and Delta Lake, with traceable near-real-time fraud alerts.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="overview">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Data engineering showcase · synthetic banking data</div>
+    <h1>One CDC layer for a bank's legacy sources, from T+1 batch to alerts in minutes</h1>
+    <p class="lead">
+      Databricks notebooks watch SQL Server and an Azure File Share for changes, publish every
+      change as a standard event to Kafka (Confluent), and keep a Delta Lake audit trail. Fraud
+      and AML rules run on the result, and any alert can be traced back to the exact log
+      position or file line that caused it.
+    </p>
+    <div class="cta-row">
+      <a class="btn primary" href="results.html">See the measured results</a>
+      <a class="btn" href="lineage.html">Trace an alert to its source</a>
+      <a class="btn" href="https://github.com/joaoblasques/Banking_cdc">Source code</a>
+    </div>
+  </section>
+
+  <section class="grid grid-4" id="headline" aria-live="polite">
+    <div class="card stat"><div class="value">–</div><div class="label">Loading run results…</div></div>
+  </section>
+  <p class="small muted" id="headline-note"></p>
+
+  <h2>The business problem</h2>
+  <div class="grid grid-2">
+    <div class="card">
+      <h3>Today at Banco Atlântico (fictional)</h3>
+      <ul>
+        <li>Core data sits on four systems: a <b>DB2</b> mainframe, a <b>SQL Server</b> cards
+          platform, <b>SingleStore</b> for instant payments, and partner files on an
+          <b>Azure File Share</b>.</li>
+        <li>Every team that needs the data queries those systems on its own. Mainframe reads
+          cost MIPS, and nobody owns a single version of the data.</li>
+        <li>Fraud and AML checks run as next-day (T+1) batch reports. A card skimmed at 10:00
+          is noticed the following morning.</li>
+        <li>When a regulator asks where a number came from, the answer takes days.</li>
+      </ul>
+    </div>
+    <div class="card accent">
+      <h3>What this project builds</h3>
+      <ul>
+        <li><b>One capture layer</b> on Databricks, driven by config. Each source gets the CDC
+          technique it can support (log, file manifest, watermark).</li>
+        <li><b>One event contract</b> on Kafka, so downstream teams subscribe to topics instead
+          of querying the sources.</li>
+        <li><b>Delta audit trail</b>: every event's Kafka offset and source position, plus a
+          reconciliation job that fails loudly when anything is missing.</li>
+        <li><b>Fraud alerts</b> on the stream, scored against planted fraud with
+          precision and recall.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>How the value is measured</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Value lever</th><th>Measured as</th><th>Where</th></tr></thead>
+      <tbody>
+        <tr><td>Detection latency, T+1 to minutes</td><td>alert time minus the source commit time of the last change behind it</td><td><a href="results.html#latency">Results</a></td></tr>
+        <tr><td>Traceability (BCBS 239 accuracy and integrity)</td><td>alert → Silver → Bronze event → Kafka offset → SQL Server LSN or file line + sha256</td><td><a href="lineage.html">Traceability</a></td></tr>
+        <tr><td>Nothing lost, nothing invented</td><td>source row counts and balance sums vs Silver; Kafka-acknowledged events vs Bronze</td><td><a href="results.html#reconciliation">Results</a></td></tr>
+        <tr><td>Detection quality</td><td>precision and recall per rule against fraud the simulator planted</td><td><a href="results.html#detection">Results</a></td></tr>
+        <tr><td>Lower load on source systems</td><td>one extraction per source, any number of consumers on Kafka</td><td><a href="architecture.html">Architecture</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Stack</h2>
+  <div class="grid grid-3">
+    <div class="card"><h3>Capture</h3><p class="muted">Python adapters run from Databricks notebooks. SQL Server native CDC; Azure File Share SDK with a Delta manifest.</p></div>
+    <div class="card"><h3>Transport</h3><p class="muted">Kafka (Confluent): one topic per entity, idempotent producer, a dead-letter topic for bad records.</p></div>
+    <div class="card"><h3>Storage</h3><p class="muted">Delta Lake: control and audit tables, Bronze (dedup), Silver (MERGE with ordering guard), Gold alerts.</p></div>
+    <div class="card"><h3>Orchestration</h3><p class="muted">Databricks Workflows via an Asset Bundle: a for-each task over the sources, then Bronze, Silver, Gold and reconciliation.</p></div>
+    <div class="card"><h3>Processing</h3><p class="muted">Apache Spark Structured Streaming with <code>availableNow</code> triggers, and Spark SQL window functions for the rules.</p></div>
+    <div class="card"><h3>Quality</h3><p class="muted">pytest (unit, Spark, SQL Server integration), ruff, GitHub Actions CI.</p></div>
+  </div>
+
+  <h2>Scope, stated plainly</h2>
+  <div class="notice">
+    The MVP covers <b>SQL Server</b> and <b>Azure File Share</b>. DB2 and SingleStore adapters
+    are next (see <a href="decisions.html">Decisions</a>): neither has a free cloud tier that
+    supports CDC, so they will be tested locally in Docker. The numbers on this site come
+    from a real local run (Docker SQL Server and Confluent Kafka, local Spark and Delta). The
+    same code runs on Databricks through the Asset Bundle.
+  </div>
+</main>
+<script src="assets/app.js"></script>
+<script>
+  loadMetrics().then((m) => {
+    const d = Object.values(m.detection);
+    const planted = d.reduce((a, r) => a + r.planted, 0);
+    const caught = d.reduce((a, r) => a + r.caught, 0);
+    const recon = m.rounds.at(-1).reconciliation;
+    const passed = recon.filter((c) => c.status === "PASS").length;
+    const tiles = [
+      [fmt.int(m.table_counts.cdc_event_audit), "change events captured and published"],
+      [fmt.secs(m.latency_seconds.p50), "median source-commit → alert latency"],
+      [`${caught} / ${planted}`, "planted fraud cases detected"],
+      [`${passed} / ${recon.length}`, "reconciliation checks passing"],
+    ];
+    document.getElementById("headline").innerHTML = tiles.map(([v, l]) =>
+      `<div class="card stat"><div class="value">${v}</div><div class="label">${l}</div></div>`).join("");
+    document.getElementById("headline-note").textContent =
+      `From the run on ${new Date(m.generated_at).toUTCString()}. ${m.environment}.`;
+  }).catch((e) => {
+    document.getElementById("headline").innerHTML =
+      `<div class="card"><p class="empty">Run results not available (${fmt.esc(e.message)}).</p></div>`;
+  });
+</script>
+</body>
+</html>

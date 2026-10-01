@@ -49,3 +49,31 @@ def test_payload_hash_covers_row_images():
     a = make_event("u", _source(), {"id": 1}, None, {"amount": "10.00"}, "r")
     b = make_event("u", _source(), {"id": 1}, None, {"amount": "10.01"}, "r")
     assert a.payload_hash != b.payload_hash
+
+
+def test_events_from_both_adapters_match_the_published_json_schema(tmp_path):
+    from pathlib import Path
+
+    import jsonschema
+
+    from banking_cdc.generator import _pt_iban
+    from banking_cdc.sources.fileshare import FileShareAdapter, LocalDirectoryShare
+    from banking_cdc.sources.sqlserver import rows_to_events
+
+    schema = json.loads(
+        (Path(__file__).parents[1] / "schemas" / "change_event.schema.json").read_text()
+    )
+    db_rows = [
+        {"__$start_lsn": b"\x01", "__$seqval": b"\x01", "__$operation": 2, "account_id": 1},
+        {"__$start_lsn": b"\x02", "__$seqval": b"\x01", "__$operation": 1, "account_id": 1},
+    ]
+    events = rows_to_events(db_rows, "cards", "dbo.accounts", ["account_id"], "r")
+    a, b = _pt_iban("0033000000000000001"), _pt_iban("0035000000000000002")
+    (tmp_path / "f.csv").write_text(
+        "transfer_id,value_date,booking_ts,debtor_iban,creditor_iban,amount,currency,reference\n"
+        f"T1,2026-10-01,2026-10-01T09:00:00+00:00,{a},{b},10.00,EUR,X\n"
+    )
+    events += FileShareAdapter(LocalDirectoryShare(tmp_path), "share").capture(None, "r").events
+    assert len(events) == 3
+    for ev in events:
+        jsonschema.validate(json.loads(ev.to_json()), schema)

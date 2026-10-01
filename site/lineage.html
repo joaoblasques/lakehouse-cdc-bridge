@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Traceability · Banking CDC</title>
+  <meta name="description" content="Pick a fraud alert and follow it back through Delta and Kafka to the SQL Server LSN or partner file line that caused it.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body data-page="lineage">
+<main>
+  <section class="hero">
+    <div class="eyebrow">Traceability</div>
+    <h1>From an alert back to the exact source change</h1>
+    <p class="lead">An auditor asks: <i>why was this account flagged, and can you prove the
+      data is what the source system recorded?</i> Pick an alert from the last run and follow
+      it back, hop by hop.</p>
+  </section>
+
+  <div class="alert-picker" id="picker" role="group" aria-label="Alerts"></div>
+  <div class="trace" id="trace" aria-live="polite"><p class="empty">Loading…</p></div>
+
+  <h2>The query behind it</h2>
+  <p class="muted">The same walk in SQL, on Databricks or locally:</p>
+<pre><code>SELECT a.rule, a.account_id, b.op, b.source_position, b.source_commit_ts,
+       au.topic, au.kafka_partition, au.kafka_offset, au.payload_hash
+FROM   gold_fraud_alerts a
+JOIN   bronze_change_events b
+       ON b.source_table = 'dbo.card_transactions'
+      AND get_json_object(b.key_json, '$.tx_id') IN (SELECT explode(a.evidence_keys))
+JOIN   cdc_event_audit au ON au.event_id = b.event_id
+WHERE  a.alert_id = :alert_id
+ORDER  BY b.source_sequence;</code></pre>
+</main>
+<script src="assets/app.js"></script>
+<script>
+  const RULE_TEXT = {
+    card_velocity: "5 or more card transactions on one account within 10 minutes",
+    impossible_travel: "two consecutive card transactions in different countries within 60 minutes",
+    structuring: "3 or more outgoing transfers of €9,000–9,999.99 within 24 hours",
+  };
+
+  function eventCard(e) {
+    let after = {};
+    try { after = JSON.parse(e.after_json || "{}"); } catch { /* deletes have no after image */ }
+    const summary = after.amount
+      ? `${after.amount} EUR · ${after.country || after.creditor_iban || ""} · ${after.status || after.booking_ts || ""}`
+      : "";
+    return `<div class="card">
+      <span class="tag blue">${fmt.esc(e.op)}</span>
+      <b>${fmt.esc(e.source_table)}</b> key <code>${fmt.esc(e.entity_key)}</code>
+      <span class="muted small">${fmt.esc(summary)}</span>
+      <dl class="kv" style="margin-top:10px">
+        <dt>source position</dt><dd>${fmt.esc(e.source_position)}</dd>
+        <dt>source commit</dt><dd>${fmt.esc(e.source_commit_ts)}</dd>
+        <dt>kafka</dt><dd>${fmt.esc(e.kafka_topic)} [p${e.kafka_partition}] @ offset ${e.kafka_offset}</dd>
+        <dt>event_id</dt><dd>${fmt.esc(e.event_id)}</dd>
+      </dl></div>`;
+  }
+
+  function show(sample) {
+    document.querySelectorAll("#picker button").forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.id === sample.alert_id)));
+    const isFile = sample.events.some((e) => e.source_system === "azure_fileshare");
+    document.getElementById("trace").innerHTML = `
+      <div class="trace-hop"><div class="hop-label">1 · Gold alert</div>
+        <div class="card accent"><h3><code>${fmt.esc(sample.rule)}</code> on account ${sample.account_id}</h3>
+          <p class="muted small">${RULE_TEXT[sample.rule] || ""}</p>
+          <dl class="kv"><dt>alert_id</dt><dd>${fmt.esc(sample.alert_id)}</dd>
+            <dt>created</dt><dd>${fmt.esc(sample.alert_created_at)}</dd>
+            <dt>latency</dt><dd>${fmt.secs(sample.latency_seconds)} after the last source commit</dd></dl></div></div>
+      <div class="trace-hop"><div class="hop-label">2 · Evidence → Bronze events, Kafka coordinates, source position</div>
+        <div class="grid">${sample.events.map(eventCard).join("")}</div></div>
+      <div class="trace-hop"><div class="hop-label">3 · Source</div>
+        <div class="card small">${isFile
+          ? "Position <code>file:line@sha256</code>: the line in the exact version of the partner file, matched by content hash. <code>cdc_file_manifest</code> keeps the etag and size of every version processed."
+          : "Position <code>start_lsn:seqval</code>: the SQL Server log sequence number of the committing transaction. While the change is inside CDC retention, <code>cdc.fn_cdc_get_all_changes_*</code> returns this exact row. After that, the Bronze copy and its <code>payload_hash</code> are the record."}</div></div>`;
+  }
+
+  loadMetrics().then((m) => {
+    const samples = m.lineage_samples || [];
+    if (!samples.length) {
+      document.getElementById("trace").innerHTML = `<p class="empty">No traced alerts in this run.</p>`;
+      return;
+    }
+    document.getElementById("picker").innerHTML = samples.map((s) =>
+      `<button type="button" data-id="${fmt.esc(s.alert_id)}" aria-pressed="false">${fmt.esc(s.rule)} · account ${s.account_id}</button>`).join("");
+    document.querySelectorAll("#picker button").forEach((b) =>
+      b.addEventListener("click", () => show(samples.find((s) => s.alert_id === b.dataset.id))));
+    show(samples[0]);
+  }).catch((e) => {
+    document.getElementById("trace").innerHTML = `<p class="empty">Run results not available (${fmt.esc(e.message)}).</p>`;
+  });
+</script>
+</body>
+</html>
