@@ -1,5 +1,5 @@
 // Shared header, footer and theme toggle. Pages declare <body data-page="...">.
-const REPO = "https://github.com/joaoblasques/Banking_cdc";
+const REPO = "https://github.com/joaoblasques/lakehouse-cdc-bridge";
 const PAGES = [
   ["index.html", "Overview", "overview"],
   ["architecture.html", "Architecture", "architecture"],
@@ -35,7 +35,7 @@ function renderChrome() {
   header.className = "site-header";
   header.innerHTML = `
     <nav class="nav" aria-label="Main">
-      <a class="brand" href="index.html">Banking<span>CDC</span></a>
+      <a class="brand" href="index.html">Lakehouse <span>CDC</span> Bridge</a>
       <div class="nav-links">
         ${PAGES.map(([href, label, key]) =>
           `<a href="${href}"${key === page ? ' aria-current="page"' : ""}>${label}</a>`).join("")}
@@ -49,7 +49,7 @@ function renderChrome() {
   const footer = document.createElement("footer");
   footer.className = "site-footer";
   footer.innerHTML = `<div>
-      <span>Banking CDC · João Blasques · synthetic data only, no real customers</span>
+      <span>Lakehouse CDC Bridge · João Blasques · synthetic data only, no real customers</span>
       <span><a href="${REPO}">Source</a> · <a href="${REPO}/blob/main/docs/design.md">Design doc</a></span>
     </div>`;
   document.body.append(footer);

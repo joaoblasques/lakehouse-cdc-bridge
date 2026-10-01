@@ -1,4 +1,4 @@
-# Banking CDC: design
+# Lakehouse CDC Bridge: design
 
 ## Business case
 

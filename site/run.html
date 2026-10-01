@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Run It · Banking CDC</title>
+  <title>Run It · Lakehouse CDC Bridge</title>
   <meta name="description" content="Run the full pipeline locally with Docker and Spark, or deploy it to Databricks with the Asset Bundle.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=JetBrains+Mono&display=swap" rel="stylesheet">
@@ -21,7 +21,7 @@
   <h2>Local</h2>
   <ol class="steps">
     <li><b>Clone and install</b>
-<pre><code>git clone https://github.com/joaoblasques/Banking_cdc && cd Banking_cdc
+<pre><code>git clone https://github.com/joaoblasques/lakehouse-cdc-bridge && cd lakehouse-cdc-bridge
 uv sync --all-extras</code></pre></li>
     <li><b>Start SQL Server (with Agent, for CDC) and Confluent Kafka</b>
 <pre><code>docker compose up -d --wait</code></pre></li>

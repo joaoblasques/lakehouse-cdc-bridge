@@ -1,10 +1,10 @@
-# Banking CDC
+# Lakehouse CDC Bridge
 
 Change data capture on Databricks for a bank's legacy sources. Changes are published to Kafka
 (Confluent), stored in Delta Lake with a full audit trail, and turned into fraud alerts that
 trace back to the exact source log position or file line.
 
-**Website:** https://joaoblasques.github.io/Banking_cdc/ (business case, architecture, measured
+**Website:** https://joaoblasques.github.io/lakehouse-cdc-bridge/ (business case, architecture, measured
 results, alert traceability)
 
 > Synthetic data only. "Banco Atlântico" is fictional.

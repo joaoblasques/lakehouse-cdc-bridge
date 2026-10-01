@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/joaoblasques/Banking_cdc/schemas/change_event.schema.json",
+  "$id": "https://github.com/joaoblasques/lakehouse-cdc-bridge/schemas/change_event.schema.json",
   "title": "ChangeEvent",
-  "description": "Standard change event emitted by every Banking CDC source adapter (schema_version 1).",
+  "description": "Standard change event emitted by every Lakehouse CDC Bridge source adapter (schema_version 1).",
   "type": "object",
   "required": ["event_id", "op", "key", "before", "after", "source", "captured_at", "trace_id",
                "schema_version", "payload_hash"],

@@ -1,5 +1,5 @@
 [project]
-name = "banking-cdc"
+name = "lakehouse-cdc-bridge"
 version = "0.1.0"
 description = "CDC from heterogeneous banking sources into Kafka (Confluent) and Delta Lake, built for Databricks."
 readme = "README.md"
